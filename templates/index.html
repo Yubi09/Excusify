@@ -1,59 +1,143 @@
 <!DOCTYPE html>
-<html>
-  <head>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <title>Excusify</title>
-  </head>
-  <body>
+    <title>Excusify: Your AI Excuse Generator</title>
+</head>
+<body>
     <h1>Excusify</h1>
 
-    <div class="form-container card"> <label for="scenario">Scenario:</label>
-      <select id="scenario">
-        <option value="late for work">Late for work</option>
-        <option value="missed class">Missed class</option>
-        <option value="forgot anniversary">Forgot anniversary</option>
-        <option value="missed deadline">Missed a deadline</option>
-        <option value="didn't text back">Didn't text back</option>
-      </select>
-      <label for="user_role">Your Role:</label>
-      <select id="user_role">
-        <option value="employee">Employee</option>
-        <option value="student">Student</option>
-        <option value="friend">Friend</option>
-        <option value="parent">Parent</option>
-      </select>
-      <label for="recipient">Recipient:</label>
-      <select id="recipient">
-        <option value="boss">Boss</option>
-        <option value="teacher">Teacher</option>
-        <option value="friend">Friend</option>
-        <option value="partner">Partner</option>
-      </select>
-      <label for="urgency">Urgency:</label>
-      <select id="urgency">
-        <option value="high">High</option>
-        <option value="medium">Medium</option>
-        <option value="low">Low</option>
-      </select>
-      <label for="believability">Believability (1=Simple, 10=Detailed):</label>
-      <div class="range-group"> <input type="range" id="believability" min="1" max="10" value="5" />
-        <span id="believability-value">5</span>
-      </div>
-    </div>
-    <button id="generateExcuseBtn" class="btn btn-accent" onclick="generateExcuse()">Generate Excuse</button>
+    <div class="container">
+        <section class="input-section">
+            <h2>Generate Your Excuse</h2>
+            <div class="form-group">
+                <label for="scenario">Scenario:</label>
+                <select id="scenario">
+                    <option value="late for work">Late for work</option>
+                    <option value="missed class">Missed class</option>
+                    <option value="forgot anniversary">Forgot anniversary</option>
+                    <option value="missed deadline">Missed a deadline</option>
+                    <option value="didn't text back">Didn't text back</option>
+                </select>
+            </div>
 
-    <div id="excuse" class="card"></div> <div id="proof_section" class="card" style="display: none"> <label for="proof_type">Proof Type:</label>
-      <select id="proof_type">
-        <option value="doctor_note">Doctor's Note (PDF)</option>
-        <option value="chat_screenshot">Chat Screenshot (PNG)</option>
-        <option value="location_log">Location Log (JSON)</option>
-      </select>
-      <button id="generateProofBtn" class="btn btn-primary" onclick="generateProof()">Generate Proof</button>
+            <div class="form-group">
+                <label for="user_role">Your Role:</label>
+                <select id="user_role">
+                    <option value="employee">Employee</option>
+                    <option value="student">Student</option>
+                    <option value="friend">Friend</option>
+                    <option value="parent">Parent</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="recipient">Recipient:</label>
+                <select id="recipient">
+                    <option value="boss">Boss</option>
+                    <option value="teacher">Teacher</option>
+                    <option value="friend">Friend</option>
+                    <option value="partner">Partner</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="urgency">Urgency:</label>
+                <select id="urgency">
+                    <option value="high">High</option>
+                    <option value="medium">Medium</option>
+                    <option value="low">Low</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label for="language">Language:</label>
+                <select id="language">
+                    <option value="en">English</option>
+                    <option value="es">Español (Spanish)</option>
+                    <option value="fr">Français (French)</option>
+                    <option value="de">Deutsch (German)</option>
+                    <option value="it">Italiano (Italian)</option>
+                    <option value="pt">Português (Portuguese)</option>
+                    <option value="hi">हिन्दी (Hindi)</option>
+                    <option value="bn">বাংলা (Bengali)</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="believability">Believability:</label>
+                <div class="range-group">
+                    <input type="range" id="believability" min="1" max="10" value="5" />
+                    <span id="believability_value">5</span>
+                </div>
+            </div>
+            
+            <button id="generateExcuseBtn" class="btn btn-accent">Generate Excuse</button>
+        </section>
+
+        <section class="output-section">
+            <h2>Your AI-Generated Excuse</h2>
+            <div id="excuseOutput" class="card">
+                Your excuse will appear here.
+            </div>
+
+            <div class="button-group">
+                <button id="speakExcuseBtn" class="btn btn-primary" style="display: none;">
+                    <span class="icon">&#128266;</span> Speak Excuse
+                </button>
+                <button id="saveExcuseBtn" class="btn btn-primary" style="display: none;">
+                    <span class="icon">&#128190;</span> Save Excuse
+                </button>
+                <audio id="excuseAudio" controls style="display: none;"></audio>
+            </div>
+
+            <div class="button-group feedback-group" style="display: none;">
+                <button id="effectiveBtn" class="btn feedback-btn effective">Effective</button>
+                <button id="ineffectiveBtn" class="btn feedback-btn ineffective">Ineffective</button>
+            </div>
+
+            <div class="proof-section" style="display: none;">
+                <h3>Generate Proof</h3>
+                <div class="form-group" style="grid-template-columns: 1fr;"> 
+                    <label for="proof_type">Proof Type:</label>
+                    <select id="proof_type">
+                        <option value="doctor_note">Doctor's Note (PDF)</option>
+                        <option value="chat_screenshot">Chat Screenshot (PNG)</option>
+                        <option value="location_log">Location Log (JSON)</option>
+                    </select>
+                </div>
+                <button id="generateProofBtn" class="btn btn-primary">Generate Proof</button>
+            </div>
+
+            <div id="proofOutput" class="card" style="display: none"></div>
+        </section>
+
+        <section class="saved-excuses-section">
+            <h2>Saved Excuses</h2>
+            <div id="savedExcusesList" class="excuse-list">
+                <p>No saved excuses yet. Generate and save one!</p>
+            </div>
+        </section>
+
+        <section class="insights-section">
+            <h2>AI Insights</h2>
+            <h3>Smart Excuse Ranking</h3>
+            <ul id="topExcusesList">
+                <p>Generate some excuses and provide feedback to see insights here!</p>
+            </ul>
+
+            <h3>Predicted Excuse Need</h3>
+            <ul id="predictedNeedList">
+                <p>Generate more excuses to see scheduling predictions!</p>
+            </ul>
+        </section>
     </div>
 
-    <div id="proof_link" class="card" style="display: none"></div> <script src="{{ url_for('static', filename='script.js') }}" defer></script>
-  </body>
+    <script src="{{ url_for('static', filename='script.js') }}" defer></script>
+</body>
 </html>

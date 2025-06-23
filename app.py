@@ -1,19 +1,23 @@
-from flask import Flask, request, jsonify, render_template, make_response, url_for, send_from_directory # Import send_from_directory
+import os
+import json
+import uuid
+import base64
+from datetime import datetime, timedelta
+import random
+from dotenv import load_dotenv
+from flask import Flask, request, jsonify, render_template, make_response, url_for, send_from_directory
 import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
-import os
-from dotenv import load_dotenv
 from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
 from reportlab.lib.utils import simpleSplit
 from PIL import Image, ImageDraw, ImageFont
-import json
-from datetime import datetime
 import traceback
 import mimetypes
-import time # Import time for potential delay
+import time
 from gtts import gTTS
+import re # Import regex module
 
 load_dotenv()
 app = Flask(__name__)
@@ -21,19 +25,22 @@ app = Flask(__name__)
 # Define PROOF_DIR as an absolute path for maximum robustness and consistency
 PROOF_DIR = os.path.abspath(os.path.join(app.root_path, 'doc', 'proofs'))
 
-# NEW: Define AUDIO_OUTPUT_DIR in the project root
+# Define AUDIO_OUTPUT_DIR in the project root
 AUDIO_OUTPUT_DIR = os.path.abspath(os.path.join(app.root_path, 'audio_files'))
+
+# Define SAVED_EXCUSES_FILE in the project root
+SAVED_EXCUSES_FILE = os.path.abspath(os.path.join(app.root_path, 'saved_excuses.json'))
 
 # Ensure directories exist at startup
 os.makedirs(PROOF_DIR, exist_ok=True)
-os.makedirs(AUDIO_OUTPUT_DIR, exist_ok=True) # Ensure the new audio directory exists
+os.makedirs(AUDIO_OUTPUT_DIR, exist_ok=True)
 
 print(f"Flask App Root Path: {app.root_path}")
 print(f"Absolute PROOF_DIR: {PROOF_DIR}")
 print(f"Absolute AUDIO_OUTPUT_DIR: {AUDIO_OUTPUT_DIR}")
+print(f"Absolute SAVED_EXCUSES_FILE: {SAVED_EXCUSES_FILE}")
 
-
-# Route to serve files from the 'doc/proofs' directory (no change here)
+# Route to serve files from the 'doc/proofs' directory
 @app.route('/proofs/<path:filename>')
 def serve_proof(filename):
     if not os.path.isdir(PROOF_DIR):
@@ -81,14 +88,22 @@ def serve_proof(filename):
 # NEW ROUTE TO SERVE AUDIO FILES FROM THE NEW DIRECTORY
 @app.route('/audio_files/<path:filename>')
 def serve_audio_file(filename):
-    # send_from_directory securely serves files from a given directory.
-    # The first argument is the directory path, the second is the filename.
     return send_from_directory(AUDIO_OUTPUT_DIR, filename)
 
-
 HUGGINGFACE_API_TOKEN = os.getenv("HUGGINGFACE_API_TOKEN")
+# Using the specific Mixtral model URL
 API_URL = "https://api-inference.huggingface.co/models/mistralai/Mixtral-8x7B-Instruct-v0.1"
 VALID_SCENARIOS = ["late for work", "missed class", "forgot anniversary", "missed deadline", "didn't text back"]
+
+# In-memory storage for insights (persists only while app is running)
+insights_db = {
+    "frequent_scenarios": {},
+    "daily_counts": {},
+    "excuse_feedback": {}
+}
+# Placeholder for generated excuses database (used for feedback tracking)
+excuses_db = {}
+
 
 def get_excuse_from_huggingface(prompt):
     headers = {
@@ -97,7 +112,7 @@ def get_excuse_from_huggingface(prompt):
     }
     payload = {
         "inputs": prompt,
-        "parameters": {"max_length": 100, "temperature": 0.7, "top_p": 0.9}
+        "parameters": {"max_new_tokens": 100, "temperature": 0.7, "top_p": 0.9}
     }
     session = requests.Session()
     retries = Retry(total=3, backoff_factor=1, status_forcelist=[429, 500, 502, 503, 504])
@@ -106,52 +121,142 @@ def get_excuse_from_huggingface(prompt):
         response = session.post(API_URL, headers=headers, json=payload)
         response.raise_for_status()
         result = response.json()
-        raw_text = result[0].get("generated_text", "No generated text found") if isinstance(result, list) else result.get("generated_text", "No generated text found")
+        print(f"Raw Hugging Face API response: {result}")
+
+        raw_text = ""
+        if isinstance(result, list) and len(result) > 0 and "generated_text" in result[0]:
+            raw_text = result[0]["generated_text"]
+        elif isinstance(result, dict) and "generated_text" in result:
+            raw_text = result["generated_text"]
+        else:
+            print("Warning: Hugging Face API response did not contain 'generated_text' in expected format.")
+            return None
+        
         if "[/INST]" in raw_text:
-            excuse = raw_text.split("[/INST]")[1].strip()
+            excuse = raw_text.split("[/INST]", 1)[1].strip()
         else:
             excuse = raw_text.strip()
-        excuse = excuse.replace('"', '').strip()
-        print(f"Hugging Face API returned excuse: {excuse}")
+        
+        # --- START: Enhanced cleaning for unwanted translations/intros ---
+        # Normalize and remove common LLM conversational intros or explicit translations
+        excuse = excuse.replace('"', '').strip() # Remove quotes
+        
+        # List of patterns to remove if they appear at the start of the excuse
+        undesired_prefixes = [
+            "here's an excuse:",
+            "translation:",
+            "english:",
+            "spanish:",
+            "french:",
+            "german:",
+            "italian:",
+            "portuguese:",
+            "hindi:",
+            "bengali:",
+            "in english:",
+            "here's the excuse:",
+            "the excuse is:",
+            "your excuse:",
+            "excuse:"
+        ]
+        
+        # Compile a regex pattern to match any of the prefixes followed by optional colon/space
+        # Using re.IGNORECASE for case-insensitivity
+        prefix_pattern = re.compile(r'^(?:' + '|'.join(re.escape(p) for p in undesired_prefixes) + r')\s*(?::\s*)?', re.IGNORECASE)
+
+        # Apply the regex pattern
+        match = prefix_pattern.match(excuse)
+        if match:
+            excuse = excuse[match.end():].strip() # Remove the matched prefix
+
+        # If after removing initial prefixes, the text still contains "Translation:" mid-string,
+        # or other language indicators, try to split it. This is a fallback for very chatty models.
+        # This specifically targets cases like "Excuse in Spanish. Translation: Excuse in English."
+        if re.search(r'\b(Translation|English|Spanish|French|German|Italian|Portuguese|Hindi|Bengali)\s*:', excuse, re.IGNORECASE):
+            parts = re.split(r'\b(Translation|English|Spanish|French|German|Italian|Portuguese|Hindi|Bengali)\s*:', excuse, 1, re.IGNORECASE)
+            if len(parts) > 1:
+                # Keep only the part before the first "Translation:" or language indicator
+                excuse = parts[0].strip()
+        # --- END: Enhanced cleaning ---
+
+        print(f"Hugging Face API returned cleaned excuse: {excuse}")
         return excuse if excuse else "Error generating excuse, please try again later."
     except requests.exceptions.RequestException as e:
         print(f"Error calling Hugging Face API: {e}")
+        if e.response is not None:
+            print(f"HTTP Status: {e.response.status_code}")
+            print(f"Response Content: {e.response.text}")
         traceback.print_exc()
         return None
 
 def generate_doctor_doc(excuse_id, scenario):
     os.makedirs(PROOF_DIR, exist_ok=True)
-    filename = f"doctor_doc_{excuse_id}.pdf"
+    filename = f"doctor_doc_{uuid.uuid4().hex}.pdf"
     full_path = os.path.join(PROOF_DIR, filename)
-    print(f"Attempting to generate doctor note at: {full_path}") # Log where we try to save
+    print(f"Attempting to generate doctor note at: {full_path}")
+    
     prompt = f"""
     [INST] Generate a concise, realistic medical detail for a doctor's note supporting the scenario '{scenario}'.
-    Keep it under 50 words, professional, and believable (e.g., minor illness or issue). Do not include the excuse itself. [/INST]
-
+    Keep it under 50 words, professional, and believable (e.g., minor illness or issue). Do not include the excuse itself or any translations. [/INST]
     """
     medical_detail = get_excuse_from_huggingface(prompt)
-    medical_detail = medical_detail.replace('"', '').strip() if medical_detail else "Unknown medical issue."
+    medical_detail = medical_detail.replace('"', '').strip() if medical_detail else "Unknown medical issue preventing attendance."
+    
+    # Further clean medical detail, specifically for doctor's note context
+    if medical_detail.lower().startswith("here's a medical detail:"):
+        medical_detail = medical_detail[len("here's a medical detail:"):].strip()
+    # Remove any stray "Translation:" or similar from doctor's note detail if it somehow appears
+    if re.search(r'\b(Translation|English)\s*:', medical_detail, re.IGNORECASE):
+        medical_detail = re.split(r'\b(Translation|English)\s*:', medical_detail, 1, re.IGNORECASE)[0].strip()
+
+    if len(medical_detail.split()) > 40:
+        medical_detail = " ".join(medical_detail.split()[:40]) + "..."
+
     try:
         c = canvas.Canvas(full_path, pagesize=letter)
-        c.setFont("Helvetica", 14)
-        c.drawString(50, 750, "Doctor's Note")
-        c.drawString(50, 720, "Patient: Staff Member")
-        c.drawString(50, 690, f"Date: {datetime.now().strftime('%Y-%m-%d')}")
-        c.drawString(50, 660, f"Reason: {scenario.replace('_', ' ').title()}")
+        c.setFont("Helvetica-Bold", 18)
+        c.drawCentredString(letter[0]/2, 750, "Doctor's Note")
+        
+        c.setFont("Helvetica", 10)
+        c.drawRightString(letter[0]-50, 780, f"Date: {datetime.now().strftime('%B %d, %Y')}")
+
         c.setFont("Helvetica", 12)
-        lines = simpleSplit(f"Details: {medical_detail}", "Helvetica", 12, 450)
-        for i, line in enumerate(lines[:3]):
-            c.drawString(50, 630 - i * 15, line)
-        c.drawString(50, 570, "Doctor: Dr. John Smith")
-        c.drawString(50, 540, "Facility: City Health Clinic")
-        c.save() # This is where the file is written
+        c.drawString(50, 700, "To Whom It May Concern,")
+        c.drawString(50, 680, f"This note confirms that a patient was seen on {datetime.now().strftime('%B %d, %Y')}.")
+        
+        c.setFont("Helvetica-Oblique", 12)
+        c.drawString(50, 650, "Diagnosis/Reason:")
+        c.setFont("Helvetica", 12)
+        
+        lines = simpleSplit(medical_detail, "Helvetica", 12, letter[0] - 100)
+        y_pos = 630
+        for line in lines:
+            c.drawString(50, y_pos, line)
+            y_pos -= 15
+        
+        y_pos -= 30
+        c.drawString(50, y_pos, "Patient is advised to rest and is excused from activities.")
+        y_pos -= 15
+        c.drawString(50, y_pos, f"Expected return: { (datetime.now() + timedelta(days=2)).strftime('%B %d, %Y') }")
+        
+        c.setFont("Helvetica-Bold", 12)
+        y_pos -= 40
+        c.drawString(50, y_pos, "Sincerely,")
+        y_pos -= 20
+        c.drawString(50, y_pos, "Dr. A.I. Goodtrust, MD")
+        y_pos -= 15
+        c.drawString(50, y_pos, "Neural Networks Clinic")
+        y_pos -= 15
+        c.drawString(50, y_pos, "101 Digital Highway, AILand")
+
+        c.save()
         print(f"Finished writing doctor note to: {full_path}")
         
         if os.path.exists(full_path):
             print(f"Confirmation: PDF file EXISTS immediately after creation at: {full_path}")
         else:
             print(f"Warning: PDF file DOES NOT EXIST immediately after creation at: {full_path}. This is unexpected!")
-        
+            
         return full_path
     except Exception as e:
         print(f"CRITICAL ERROR generating PDF for {scenario} (excuse_id: {excuse_id}): {e}")
@@ -160,16 +265,16 @@ def generate_doctor_doc(excuse_id, scenario):
 
 def get_font_path():
     font_paths = [
-        "arial.ttf",
-        "/usr/share/fonts/truetype/msttcorefonts/Arial.ttf",
-        "/Library/Fonts/Arial.ttf",
         "C:/Windows/Fonts/arial.ttf",
-        "/System/Library/Fonts/Supplemental/Arial.ttf"
+        "/Library/Fonts/Arial.ttf",
+        "/System/Library/Fonts/Supplemental/Arial.ttf",
+        "/usr/share/fonts/truetype/msttcorefonts/Arial.ttf",
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
     ]
     for path in font_paths:
         if os.path.exists(path):
             return path
-    print("Warning: Arial.ttf not found. Using default font.")
+    print("Warning: Arial.ttf or DejaVuSans.ttf not found. Using Pillow's default font.")
     return None
 
 ARIAL_FONT_PATH = get_font_path()
@@ -180,16 +285,22 @@ def wrap_text(draw, text, font, max_width):
         return [""]
     words = text.split(' ')
     current_line = []
+    
     for word in words:
         test_line = ' '.join(current_line + [word])
-        bbox = draw.textbbox((0, 0), test_line, font=font)
-        text_width = bbox[2] - bbox[0]
         
+        try:
+            bbox = draw.textbbox((0, 0), test_line, font=font)
+            text_width = bbox[2] - bbox[0]
+        except TypeError:
+            text_width = len(test_line) * (font.size * 0.6) if font else len(test_line) * 10
+            print(f"Warning: textbbox failed with current font, using approximate width for '{test_line}'.")
+
         if text_width <= max_width:
             current_line.append(word)
         else:
             if not current_line:
-                lines.append(word) 
+                lines.append(word)
                 current_line = []
             else:
                 lines.append(' '.join(current_line))
@@ -201,7 +312,7 @@ def wrap_text(draw, text, font, max_width):
 
 def generate_chat_screenshot(excuse_id, excuse, scenario):
     os.makedirs(PROOF_DIR, exist_ok=True)
-    filename = f"chat_screenshot_{excuse_id}.png"
+    filename = f"chat_screenshot_{uuid.uuid4().hex}.png"
     full_path = os.path.join(PROOF_DIR, filename)
     print(f"Attempting to generate chat screenshot at: {full_path}")
     
@@ -228,27 +339,58 @@ def generate_chat_screenshot(excuse_id, excuse, scenario):
     current_y = 30
     line_height = font_size + 5
 
-    friend_text = f"Friend: Sorry, I'm {scenario.replace('_', ' ')}!"
-    wrapped_friend_lines = wrap_text(draw, friend_text, font, img_width - 2 * margin)
-    for line in wrapped_friend_lines:
-        draw.text((margin, current_y), line, fill="black", font=font)
-        current_y += line_height
+    friend_text_template = {
+        "late for work": "Hey, where are you? You're late for work!",
+        "missed class": "Did you miss class today? We had a pop quiz!",
+        "forgot anniversary": "Happy Anniversary! ... wait, did you forget?",
+        "missed deadline": "Just checking in, did you get that report done? Deadline was today.",
+        "didn't text back": "Hey, I texted you earlier. Everything okay? Why didn't you text back?"
+    }
+    friend_initial_message = friend_text_template.get(scenario, "Hello?")
     
-    current_y += line_height * 1.5
+    bubble_color_friend = (229, 229, 229)
+    bubble_color_you = (220, 248, 198)
 
-    you_text = f"You: {excuse}"
-    wrapped_you_lines = wrap_text(draw, you_text, font, img_width - 2 * margin)
-    for line in wrapped_you_lines:
-        draw.text((margin, current_y), line, fill="blue", font=font)
-        current_y += line_height
+    wrapped_lines = wrap_text(draw, friend_initial_message, font, img_width * 0.7 - (2 * 15))
+    bubble_height = (len(wrapped_lines) * line_height) + (2 * 10)
+    
+    bubble_width = max((draw.textbbox((0,0), line, font=font)[2] - draw.textbbox((0,0), line, font=font)[0] for line in wrapped_lines), default=0) + (2 * 15)
+    bubble_width = min(bubble_width, img_width * 0.7)
 
-    current_y += line_height * 1.5
+    draw.rounded_rectangle((margin, current_y, margin + bubble_width, current_y + bubble_height), radius=15, fill=bubble_color_friend)
+    text_y = current_y + 10
+    for line in wrapped_lines:
+        draw.text((margin + 15, text_y), line, fill="black", font=font)
+        text_y += line_height
+    current_y += bubble_height + 20
 
-    final_friend_text = "Friend: No worries, take care!"
-    wrapped_final_friend_lines = wrap_text(draw, final_friend_text, font, img_width - 2 * margin)
-    for line in wrapped_final_friend_lines:
-        draw.text((margin, current_y), line, fill="black", font=font)
-        current_y += line_height
+    wrapped_lines = wrap_text(draw, excuse, font, img_width * 0.7 - (2 * 15))
+    bubble_height = (len(wrapped_lines) * line_height) + (2 * 10)
+
+    bubble_width = max((draw.textbbox((0,0), line, font=font)[2] - draw.textbbox((0,0), line, font=font)[0] for line in wrapped_lines), default=0) + (2 * 15)
+    bubble_width = min(bubble_width, img_width * 0.7)
+
+    you_x_start = img_width - margin - bubble_width
+    draw.rounded_rectangle((you_x_start, current_y, img_width - margin, current_y + bubble_height), radius=15, fill=bubble_color_you)
+    text_y = current_y + 10
+    for line in wrapped_lines:
+        draw.text((you_x_start + 15, text_y), line, fill="black", font=font)
+        text_y += line_height
+    current_y += bubble_height + 20
+
+    friend_closing_message = "Oh, okay! Hope everything's alright. Take care!"
+    wrapped_lines = wrap_text(draw, friend_closing_message, font, img_width * 0.7 - (2 * 15))
+    bubble_height = (len(wrapped_lines) * line_height) + (2 * 10)
+
+    bubble_width = max((draw.textbbox((0,0), line, font=font)[2] - draw.textbbox((0,0), line, font=font)[0] for line in wrapped_lines), default=0) + (2 * 15)
+    bubble_width = min(bubble_width, img_width * 0.7)
+
+    draw.rounded_rectangle((margin, current_y, margin + bubble_width, current_y + bubble_height), radius=15, fill=bubble_color_friend)
+    text_y = current_y + 10
+    for line in wrapped_lines:
+        draw.text((margin + 15, text_y), line, fill="black", font=font)
+        text_y += line_height
+    current_y += bubble_height + 20
 
     if current_y > img_height:
         new_img_height = current_y + margin
@@ -272,14 +414,20 @@ def generate_chat_screenshot(excuse_id, excuse, scenario):
 
 def generate_location_log(excuse_id, scenario):
     os.makedirs(PROOF_DIR, exist_ok=True)
-    filename = f"location_log_{excuse_id}.json"
+    filename = f"location_log_{uuid.uuid4().hex}.json"
     full_path = os.path.join(PROOF_DIR, filename)
     print(f"Attempting to generate location log at: {full_path}")
+    
+    base_lat = 22.5726
+    base_lon = 88.3639
+
     log = {
-        "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-        "latitude": 37.7749,
-        "longitude": -122.4194,
-        "place": f"Related to {scenario.replace('_', ' ').title()}"
+        "timestamp": datetime.now().isoformat(),
+        "latitude": base_lat + (random.random() - 0.5) * 0.05,
+        "longitude": base_lon + (random.random() - 0.5) * 0.05,
+        "accuracy_meters": 10 + random.randint(0, 50),
+        "event_type": "Unexpected Location Activity",
+        "notes": f"Device detected unusual movement patterns related to '{scenario.replace('_', ' ').title()}'."
     }
     try:
         with open(full_path, "w") as f:
@@ -295,6 +443,27 @@ def generate_location_log(excuse_id, scenario):
         traceback.print_exc()
         return None
 
+# --- Saved Excuses Functions ---
+def _load_saved_excuses():
+    if not os.path.exists(SAVED_EXCUSES_FILE):
+        return {}
+    try:
+        with open(SAVED_EXCUSES_FILE, 'r', encoding='utf-8') as f:
+            return json.load(f)
+    except json.JSONDecodeError:
+        print(f"Warning: {SAVED_EXCUSES_FILE} is empty or malformed. Starting with empty saved excuses.")
+        return {}
+    except Exception as e:
+        print(f"Error loading saved excuses from {SAVED_EXCUSES_FILE}: {e}")
+        return {}
+
+def _save_saved_excuses(data):
+    try:
+        with open(SAVED_EXCUSES_FILE, 'w', encoding='utf-8') as f:
+            json.dump(data, f, indent=2, ensure_ascii=False)
+    except Exception as e:
+        print(f"Error saving excuses to {SAVED_EXCUSES_FILE}: {e}")
+
 @app.route("/")
 def home():
     return render_template("index.html")
@@ -307,50 +476,79 @@ def generate_excuse():
     recipient = data.get("recipient", "generic")
     urgency = data.get("urgency", "medium")
     believability = data.get("believability", "5")
+    language = data.get("language", "en")
+
     if scenario not in VALID_SCENARIOS:
         return jsonify({"excuse": "Invalid scenario provided.", "excuse_id": None}), 400
+    
+    language_map = {
+        "en": "English", "es": "Spanish", "fr": "French", "de": "German",
+        "it": "Italian", "pt": "Portuguese", "hi": "Hindi", "bn": "Bengali"
+    }
+    target_language = language_map.get(language, "English")
+
+    # Modified prompt to explicitly ask for no translation and no conversational filler
     prompt = f"""
-    [INST] Generate a concise, realistic, and believable excuse for:
-    - Scenario: {scenario}
-    - User Role: {user_role}
-    - Recipient: {recipient}
-    - Urgency: {urgency}
-    - Believability: {believability}/10 (1=simple, 10=highly detailed)
-    Keep it under 50 words and match the tone to the recipient. [/INST]
+    [INST] Generate a concise, realistic, and believable excuse for a {user_role} who needs an excuse for '{scenario}' to their {recipient}. The urgency is {urgency} and believability is {believability}/10 (1=simple, 10=highly detailed). The excuse should be **solely in {target_language}**.
+    Do NOT include any conversational filler, introductions, or explicit translations (e.g., do not say "Translation: [English excuse]"). Provide only the excuse itself.
+    [/INST]
     """
+    
     excuse = get_excuse_from_huggingface(prompt)
     if excuse is None:
+        print("Failed to get excuse from AI. Check API key, model access, and network.")
         return jsonify({"excuse": "Failed to get excuse from AI. Please try again.", "excuse_id": None}), 500
-    excuse_id = datetime.now().strftime("%Y%m%d%H%M%S")
+    
+    excuse_id = str(uuid.uuid4())
+    
+    current_time_iso = datetime.now().isoformat()
+    excuses_db[excuse_id] = {
+        "excuse_text": excuse,
+        "scenario": scenario,
+        "user_role": user_role,
+        "recipient": recipient,
+        "believability": believability,
+        "timestamp": current_time_iso,
+        "feedback": {"effective_count": 0, "total_feedback": 0}
+    }
+    
+    insights_db["frequent_scenarios"][scenario] = insights_db["frequent_scenarios"].get(scenario, 0) + 1
+    today_str = datetime.now().strftime("%Y-%m-%d")
+    insights_db["daily_counts"][today_str] = insights_db["daily_counts"].get(today_str, 0) + 1
+
     print(f"Generated excuse ID: {excuse_id}")
     return jsonify({"excuse": excuse, "excuse_id": excuse_id})
 
-# Updated /speak_excuse endpoint to save to AUDIO_OUTPUT_DIR
 @app.route("/speak_excuse", methods=["POST"])
 def speak_excuse():
     data = request.get_json()
     excuse_text = data.get("excuse", "")
-    excuse_id = data.get("excuse_id", datetime.now().strftime("%Y%m%d%H%M%S_%f"))
+    excuse_id = data.get("excuse_id", str(uuid.uuid4()))
+    language_code = data.get("language", "en") # Get language from frontend for gTTS
 
     if not excuse_text:
         return jsonify({"error": "No excuse text provided"}), 400
 
     try:
-        tts = gTTS(text=excuse_text, lang='en')
-        audio_filename = f"excuse_{excuse_id}.mp3"
-        audio_filepath = os.path.join(AUDIO_OUTPUT_DIR, audio_filename) # Use new directory
+        # Use the language code passed from the frontend
+        tts = gTTS(text=excuse_text, lang=language_code)
+
+        audio_filename = f"excuse_{excuse_id}_{language_code}.mp3" # Include language in filename
+        audio_filepath = os.path.join(AUDIO_OUTPUT_DIR, audio_filename)
         
         print(f"Attempting to save audio to: {audio_filepath}")
         tts.save(audio_filepath)
         
+        # Add a small delay to ensure the file is fully written before returning URL
+        time.sleep(0.5) # Increased delay slightly to help with file readiness
+
         if os.path.exists(audio_filepath):
             print(f"SUCCESS: Audio file '{audio_filename}' found on disk at {audio_filepath}")
         else:
             print(f"ERROR: Audio file '{audio_filename}' NOT FOUND on disk at {audio_filepath} after tts.save()")
             return jsonify({"error": "Failed to save audio file to disk."}), 500
 
-        # Now, generate the URL using the new custom route
-        audio_url = url_for('serve_audio_file', filename=audio_filename) # Use the new route name
+        audio_url = url_for('serve_audio_file', filename=audio_filename)
         print(f"Generated audio URL: {audio_url}")
         return jsonify({"audio_url": audio_url})
     except Exception as e:
@@ -366,6 +564,7 @@ def generate_proof(excuse_id):
     excuse = data.get("excuse", "")
     scenario = data.get("scenario", "generic situation")
     print(f"\n--- Attempting to generate proof: excuse_id={excuse_id}, proof_type={proof_type}, scenario={scenario} ---")
+    
     proof_path = None
     try:
         if proof_type == "doctor_note":
@@ -401,5 +600,120 @@ def generate_proof(excuse_id):
         traceback.print_exc()
         return jsonify({"error": f"Failed to generate proof due to an unexpected server error: ({e}). Please check server logs for details."}), 500
 
-if __name__ == "__main__":
+@app.route('/feedback', methods=['POST'])
+def submit_feedback():
+    data = request.json
+    excuse_id = data.get('excuse_id')
+    is_effective = data.get('is_effective')
+
+    if excuse_id not in excuses_db:
+        return jsonify({"error": "Excuse not found."}), 404
+
+    excuse_data = excuses_db[excuse_id]
+    
+    if excuse_data["excuse_text"] not in insights_db["excuse_feedback"]:
+        insights_db["excuse_feedback"][excuse_data["excuse_text"]] = {"effective_count": 0, "total_feedback": 0}
+
+    excuse_data["feedback"]["total_feedback"] += 1
+    if is_effective:
+        excuse_data["feedback"]["effective_count"] += 1
+
+    insights_db["excuse_feedback"][excuse_data["excuse_text"]]["total_feedback"] += 1
+    if is_effective:
+        insights_db["excuse_feedback"][excuse_data["excuse_text"]]["effective_count"] += 1
+
+    return jsonify({"message": "Feedback received!", "current_feedback": excuse_data["feedback"]})
+
+@app.route('/insights')
+def get_insights():
+    # Smart Excuse Ranking
+    ranked_excuses = sorted(
+        [
+            {"excuse_text": text, **data}
+            for text, data in insights_db["excuse_feedback"].items()
+            if data["total_feedback"] > 0
+        ],
+        key=lambda x: x["effective_count"] / x["total_feedback"],
+        reverse=True
+    )[:5]
+
+    # Predicted Excuse Need (simple version: most frequent scenarios + busiest time of day/week)
+    
+    # Frequent scenarios 
+    frequent_scenarios_list = sorted(
+        [{"scenario": s, "count": c} for s, c in insights_db["frequent_scenarios"].items()],
+        key=lambda x: x["count"],
+        reverse=True
+    )[:5]
+
+    # Simple busiest time prediction
+    total_excuses_generated = sum(insights_db["daily_counts"].values())
+    
+    predicted_excuse_time = "No clear pattern yet (generate more excuses!)"
+    if total_excuses_generated > 5: # Need some data to predict
+        hour_counts = {}
+        for excuse_id, excuse_data in excuses_db.items(): # Use excuses_db for timestamp
+            timestamp_str = excuse_data['timestamp']
+            dt_object = datetime.fromisoformat(timestamp_str)
+            hour = dt_object.hour
+            hour_counts[hour] = hour_counts.get(hour, 0) + 1
+        
+        if hour_counts:
+            busiest_hour = max(hour_counts, key=hour_counts.get)
+            predicted_excuse_time = f"{busiest_hour}:00 - {busiest_hour+1}:00 (based on past activity)"
+            if busiest_hour == 0: predicted_excuse_time = "12 AM - 1 AM (based on past activity)"
+            elif busiest_hour == 12: predicted_excuse_time = "12 PM - 1 PM (based on past activity)"
+            elif busiest_hour > 12: predicted_excuse_time = f"{busiest_hour - 12} PM - {busiest_hour - 11} PM (based on past activity)"
+            else: predicted_excuse_time = f"{busiest_hour} AM - {busiest_hour + 1} AM (based on past activity)"
+
+    insights = {
+        "top_excuses": ranked_excuses,
+        "frequent_scenarios_all_time": frequent_scenarios_list,
+        "predicted_excuse_time": predicted_excuse_time
+    }
+    return jsonify(insights)
+
+# --- New Routes for Saved Excuses ---
+@app.route('/save_excuse', methods=['POST'])
+def save_excuse():
+    data = request.get_json()
+    excuse_text = data.get('excuse_text')
+    scenario = data.get('scenario')
+    user_role = data.get('user_role')
+    recipient = data.get('recipient')
+    language = data.get('language') # Also save language for later 'use'
+
+    if not excuse_text:
+        return jsonify({"error": "Excuse text is required to save."}), 400
+
+    saved_excuses = _load_saved_excuses()
+    new_id = str(uuid.uuid4())
+    saved_excuses[new_id] = {
+        "id": new_id,
+        "excuse_text": excuse_text,
+        "scenario": scenario,
+        "user_role": user_role,
+        "recipient": recipient,
+        "language": language,
+        "saved_at": datetime.now().isoformat()
+    }
+    _save_saved_excuses(saved_excuses)
+    return jsonify({"message": "Excuse saved successfully!", "id": new_id}), 201
+
+@app.route('/get_saved_excuses', methods=['GET'])
+def get_saved_excuses():
+    saved_excuses = _load_saved_excuses()
+    # Convert dictionary to a list of its values for easier consumption by frontend
+    return jsonify(list(saved_excuses.values()))
+
+@app.route('/delete_saved_excuse/<excuse_id>', methods=['DELETE'])
+def delete_saved_excuse(excuse_id):
+    saved_excuses = _load_saved_excuses()
+    if excuse_id in saved_excuses:
+        del saved_excuses[excuse_id]
+        _save_saved_excuses(saved_excuses)
+        return jsonify({"message": "Excuse deleted successfully!"}), 200
+    return jsonify({"error": "Excuse not found."}), 404
+
+if __name__ == '__main__':
     app.run(debug=True)

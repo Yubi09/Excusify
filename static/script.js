@@ -1,44 +1,65 @@
 let currentExcuseId = null;
-let currentExcuse = null;
+let currentExcuseText = null; // Renamed for clarity, matches backend
 let currentScenario = null;
-let currentAudio = null; // Store the current audio object
+let currentUserRole = null; // Stored for pre-filling saved excuses
+let currentRecipient = null; // Stored for pre-filling saved excuses
+let currentLanguage = 'en'; // Store the language of the generated excuse for speaking/saving
 
-// Helper function for title casing in JavaScript
+// Helper function for title casing
 function toTitleCase(str) {
-  if (!str) return ''; // Handle empty or null strings
+  if (!str) return '';
   return str
-    .replace(/_/g, ' ') // Replace underscores with spaces
-    .split(' ') // Split by spaces
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()) // Capitalize first letter of each word
-    .join(' '); // Join back with spaces
+    .replace(/_/g, ' ')
+    .split(' ')
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(' ');
 }
 
+// Get DOM elements
+const believabilityRange = document.getElementById('believability');
+const believabilityValueSpan = document.getElementById('believability_value');
+const generateExcuseBtn = document.getElementById('generateExcuseBtn');
+const excuseOutputDiv = document.getElementById('excuseOutput');
+const speakExcuseBtn = document.getElementById('speakExcuseBtn');
+const saveExcuseBtn = document.getElementById('saveExcuseBtn'); // New save button
+const excuseAudio = document.getElementById('excuseAudio');
+const effectiveBtn = document.getElementById('effectiveBtn');
+const ineffectiveBtn = document.getElementById('ineffectiveBtn');
+const proofTypeSelect = document.getElementById('proof_type');
+const generateProofBtn = document.getElementById('generateProofBtn');
+const proofOutputDiv = document.getElementById('proofOutput');
+const feedbackGroup = document.querySelector('.feedback-group');
+const proofSection = document.querySelector('.proof-section');
+const topExcusesList = document.getElementById('topExcusesList');
+const predictedNeedList = document.getElementById('predictedNeedList');
+const savedExcusesList = document.getElementById('savedExcusesList'); // New list for saved excuses
+
 // Update believability value display
-document.getElementById('believability').addEventListener('input', function () {
-  document.getElementById('believability-value').textContent = this.value;
+believabilityRange.addEventListener('input', function () {
+  believabilityValueSpan.textContent = this.value;
 });
 
+// Event Listeners for buttons
+generateExcuseBtn.addEventListener('click', generateExcuse);
+speakExcuseBtn.addEventListener('click', speakExcuse);
+saveExcuseBtn.addEventListener('click', saveExcuse); // New event listener for save button
+effectiveBtn.addEventListener('click', () => submitFeedback(true));
+ineffectiveBtn.addEventListener('click', () => submitFeedback(false));
+generateProofBtn.addEventListener('click', generateProof);
+
 // Function to handle playing the excuse audio
-async function playExcuse(excuse, excuseId) {
-  if (!excuse) {
-    console.error('No excuse text available to play.');
+async function speakExcuse() {
+  if (!currentExcuseText || !currentExcuseId) {
+    console.error('No excuse text or ID available to play.');
+    alert('Please generate an excuse first.');
     return;
   }
 
-  // Stop any currently playing audio
-  if (currentAudio) {
-    currentAudio.pause();
-    currentAudio.currentTime = 0;
-  }
-
-  const playButton = document.getElementById('playExcuseBtn');
-  if (playButton) {
-    playButton.disabled = true; // Disable button during processing
-    // Store the original HTML content of the button to restore it later
-    const originalButtonHtml = playButton.innerHTML;
-    playButton.innerHTML =
-      '<div class="spinner spinner-small"></div> Generating Audio...'; // Show spinner inside button
-  }
+  speakExcuseBtn.disabled = true;
+  const originalButtonHtml = speakExcuseBtn.innerHTML;
+  speakExcuseBtn.innerHTML =
+    '<div class="spinner spinner-small"></div> Generating Audio...';
+  excuseAudio.style.display = 'none';
 
   try {
     const response = await fetch('/speak_excuse', {
@@ -46,7 +67,11 @@ async function playExcuse(excuse, excuseId) {
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ excuse: excuse, excuse_id: excuseId }),
+      body: JSON.stringify({
+        excuse: currentExcuseText,
+        excuse_id: currentExcuseId,
+        language: currentLanguage, // Pass language for gTTS
+      }),
     });
 
     if (!response.ok) {
@@ -58,14 +83,10 @@ async function playExcuse(excuse, excuseId) {
     const audioUrl = data.audio_url;
 
     if (audioUrl) {
-      currentAudio = new Audio(audioUrl);
-      currentAudio.play();
-      currentAudio.onended = () => {
-        if (playButton) {
-          playButton.innerHTML = originalButtonHtml; // Restore button text
-          playButton.disabled = false; // Re-enable button
-        }
-      };
+      excuseAudio.src = audioUrl;
+      excuseAudio.load();
+      excuseAudio.play();
+      excuseAudio.style.display = 'block';
     } else {
       console.error('Audio URL not received.');
       alert('Error: Audio URL not received. Please try again.');
@@ -74,16 +95,8 @@ async function playExcuse(excuse, excuseId) {
     console.error('Error generating or playing audio:', error);
     alert('Error generating or playing audio. Please try again.');
   } finally {
-    if (playButton) {
-      // Ensure button state is restored even if an error occurs
-      playButton.innerHTML =
-        '<div class="spinner spinner-small"></div> Generating Audio...'; // Temporary until it's restored fully
-      setTimeout(() => {
-        // Use a small timeout to ensure HTML is rendered before restoring
-        playButton.innerHTML = '🔊 Play Excuse'; // Restore to simple text for stability
-        playButton.disabled = false;
-      }, 100);
-    }
+    speakExcuseBtn.innerHTML = originalButtonHtml;
+    speakExcuseBtn.disabled = false;
   }
 }
 
@@ -92,25 +105,33 @@ async function generateExcuse() {
   const user_role = document.getElementById('user_role').value;
   const recipient = document.getElementById('recipient').value;
   const urgency = document.getElementById('urgency').value;
-  const believability = document.getElementById('believability').value;
+  const believability = believabilityRange.value;
+  const language = document.getElementById('language').value;
 
-  const excuseDiv = document.getElementById('excuse');
-  const generateBtn = document.getElementById('generateExcuseBtn');
+  // Store these values globally for use by speak, save, and proof functions
+  currentScenario = scenario;
+  currentUserRole = user_role;
+  currentRecipient = recipient;
+  currentLanguage = language;
 
-  // Show loading state for the excuse area
-  excuseDiv.classList.add('generating');
-  excuseDiv.innerHTML =
+  // Reset UI elements
+  excuseOutputDiv.innerHTML = '';
+  speakExcuseBtn.style.display = 'none';
+  saveExcuseBtn.style.display = 'none'; // Hide save button until generated
+  excuseAudio.style.display = 'none';
+  excuseAudio.src = '';
+  feedbackGroup.style.display = 'none';
+  proofSection.style.display = 'none';
+  proofOutputDiv.style.display = 'none';
+  proofOutputDiv.innerHTML = '';
+
+  // Show loading state
+  excuseOutputDiv.classList.add('generating');
+  excuseOutputDiv.innerHTML =
     '<div class="spinner"></div><p>Generating excuse...</p>';
-
-  // Disable generate button and show spinner
-  if (generateBtn) {
-    generateBtn.disabled = true;
-    generateBtn.innerHTML =
-      '<div class="spinner spinner-small"></div> Generating...';
-  }
-
-  document.getElementById('proof_section').style.display = 'none';
-  document.getElementById('proof_link').style.display = 'none';
+  generateExcuseBtn.disabled = true;
+  generateExcuseBtn.innerHTML =
+    '<div class="spinner spinner-small"></div> Generating...';
 
   try {
     const response = await fetch('/generate', {
@@ -122,6 +143,7 @@ async function generateExcuse() {
         recipient,
         urgency,
         believability,
+        language,
       }),
     });
 
@@ -134,90 +156,52 @@ async function generateExcuse() {
     console.log('Excuse response:', data);
 
     currentExcuseId = data.excuse_id;
-    currentExcuse = data.excuse;
-    currentScenario = scenario;
+    currentExcuseText = data.excuse; // Use currentExcuseText consistently
 
-    // Restore excuse display and add play/download buttons with new classes
-    excuseDiv.classList.remove('generating');
-    excuseDiv.innerHTML = `
-            <b>Excuse:</b> ${data.excuse}
-            <div id="excuse-actions">
-                <button id="playExcuseBtn" class="btn btn-primary">🔊 Play Excuse</button>
-                <a id="downloadExcuseAudio" href="#" download="excuse_${data.excuse_id}.mp3" class="btn btn-primary">⬇ Download Audio</a>
-            </div>
-        `;
+    excuseOutputDiv.classList.remove('generating');
+    excuseOutputDiv.innerHTML = `<b>Excuse:</b> ${data.excuse}`;
 
-    // Get the audio URL from the server for the download link
-    fetch('/speak_excuse', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ excuse: data.excuse, excuse_id: data.excuse_id }),
-    })
-      .then((audioResponse) => audioResponse.json())
-      .then((audioData) => {
-        if (audioData.audio_url) {
-          document.getElementById('downloadExcuseAudio').href =
-            audioData.audio_url;
-          const filename = audioData.audio_url.split('/').pop();
-          document
-            .getElementById('downloadExcuseAudio')
-            .setAttribute('download', filename);
-        }
-      })
-      .catch((error) => {
-        console.error('Could not fetch audio for download:', error);
-        // Optionally hide the download button if audio fetch fails
-        const downloadLink = document.getElementById('downloadExcuseAudio');
-        if (downloadLink) downloadLink.style.display = 'none';
-      });
+    // Show action buttons
+    speakExcuseBtn.style.display = 'inline-block';
+    saveExcuseBtn.style.display = 'inline-block'; // Show save button
+    feedbackGroup.style.display = 'flex';
+    proofSection.style.display = 'block';
 
-    // Add event listener to the play button (needs to be done after HTML is injected)
-    document.getElementById('playExcuseBtn').addEventListener('click', () => {
-      playExcuse(data.excuse, data.excuse_id);
-    });
-
-    document.getElementById('proof_section').style.display = 'flex'; // Changed to flex for proper layout
+    // Fetch and display updated insights (after a new excuse is generated)
+    fetchInsights();
   } catch (error) {
-    excuseDiv.classList.remove('generating');
-    excuseDiv.innerHTML = `Error: Failed to generate excuse. Please try again.`;
+    excuseOutputDiv.classList.remove('generating');
+    excuseOutputDiv.innerHTML = `<p class="error-message">Error: Failed to generate excuse. Please try again.</p>`;
     console.error('Excuse generation error:', error);
   } finally {
-    // Always re-enable generate button
-    if (generateBtn) {
-      generateBtn.disabled = false;
-      generateBtn.innerHTML = 'Generate Excuse';
-    }
+    generateExcuseBtn.disabled = false;
+    generateExcuseBtn.innerHTML = 'Generate Excuse';
   }
 }
 
 async function generateProof() {
-  if (!currentExcuseId || !currentScenario) {
-    document.getElementById('proof_link').style.display = 'flex'; // Changed to flex
-    document.getElementById('proof_link').innerHTML =
-      '<p class="loading-text">Error: No excuse generated to create proof for.</p>'; // Use loading-text style for error
+  if (!currentExcuseId || !currentScenario || !currentExcuseText) {
+    proofOutputDiv.style.display = 'block';
+    proofOutputDiv.innerHTML =
+      '<p class="error-message">Error: Please generate an excuse first.</p>';
     return;
   }
-  const proof_type = document.getElementById('proof_type').value;
-  document.getElementById('proof_link').style.display = 'flex'; // Changed to flex
+  const proof_type = proofTypeSelect.value;
+  proofOutputDiv.style.display = 'block';
 
-  const generateProofBtn = document.getElementById('generateProofBtn');
-  if (generateProofBtn) {
-    generateProofBtn.disabled = true;
-    generateProofBtn.innerHTML =
-      '<div class="spinner spinner-small"></div> Generating...';
-  }
+  generateProofBtn.disabled = true;
+  generateProofBtn.innerHTML =
+    '<div class="spinner spinner-small"></div> Generating...';
 
-  document.getElementById('proof_link').innerHTML =
-    '<div class="spinner spinner-small"></div><p>Generating proof...</p>';
+  proofOutputDiv.innerHTML =
+    '<div class="spinner"></div><p>Generating proof...</p>';
 
   try {
     const response = await fetch(`/generate_proof/${currentExcuseId}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        excuse: currentExcuse,
+        excuse: currentExcuseText,
         scenario: currentScenario,
         proof_type,
       }),
@@ -229,20 +213,17 @@ async function generateProof() {
     const data = await response.json();
     console.log('Proof response:', data);
     if (data.error) {
-      document.getElementById(
-        'proof_link'
-      ).innerHTML = `<p class="loading-text">Error: ${data.error}</p>`;
+      proofOutputDiv.innerHTML = `<p class="error-message">Error: ${data.error}</p>`;
       return;
     }
 
     const downloadUrl = data.proof_url;
     const filename = downloadUrl.split('/').pop();
 
-    let downloadMessage = `<p>Proof generated: <a href="${downloadUrl}" target="_blank" download="${filename}">⬇ Download ${toTitleCase(
+    let downloadMessage = `<p>Proof generated: <a href="${downloadUrl}" target="_blank" download="${filename}" class="proof-link">⬇ Download ${toTitleCase(
       proof_type
     )}</a></p>`;
 
-    // Add specific instructions for download behavior
     if (proof_type === 'doctor_note') {
       downloadMessage += `<small>If the PDF opens in your browser instead of downloading, right-click the link and choose "Save link as..." or "Download linked file".</small>`;
     } else if (proof_type === 'chat_screenshot') {
@@ -251,16 +232,291 @@ async function generateProof() {
       downloadMessage += `<small>Your JSON should download automatically. If not, right-click the link and choose "Save link as...".</small>`;
     }
 
-    document.getElementById('proof_link').innerHTML = downloadMessage;
+    proofOutputDiv.innerHTML = downloadMessage;
   } catch (error) {
-    document.getElementById(
-      'proof_link'
-    ).innerHTML = `<p class="loading-text">Error: Failed to generate proof. Please try again.</p>`;
+    proofOutputDiv.innerHTML = `<p class="error-message">Error: Failed to generate proof. Please try again.</p>`;
     console.error('Proof generation error:', error);
   } finally {
-    if (generateProofBtn) {
-      generateProofBtn.disabled = false;
-      generateProofBtn.innerHTML = 'Generate Proof';
-    }
+    generateProofBtn.disabled = false;
+    generateProofBtn.innerHTML = 'Generate Proof';
   }
 }
+
+// Function to submit feedback
+async function submitFeedback(isEffective) {
+  if (!currentExcuseId) {
+    alert('Please generate an excuse before submitting feedback.');
+    return;
+  }
+
+  try {
+    const response = await fetch('/feedback', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        excuse_id: currentExcuseId,
+        is_effective: isEffective,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`HTTP error! Status: ${response.status} - ${errorText}`);
+    }
+
+    const data = await response.json();
+    console.log('Feedback submitted:', data);
+    alert('Thank you for your feedback!');
+
+    // Optionally hide feedback buttons after submission
+    feedbackGroup.style.display = 'none';
+
+    // Refresh insights after feedback
+    fetchInsights();
+  } catch (error) {
+    console.error('Error submitting feedback:', error);
+    alert('Error submitting feedback. Please try again.');
+  }
+}
+
+// Function to fetch and display AI Insights
+async function fetchInsights() {
+  topExcusesList.innerHTML =
+    '<div class="spinner spinner-small"></div> Loading insights...';
+  predictedNeedList.innerHTML = ''; // Clear for new content
+
+  try {
+    const response = await fetch('/insights');
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`HTTP error! Status: ${response.status} - ${errorText}`);
+    }
+    const insights = await response.json();
+    console.log('AI Insights:', insights);
+
+    // Populate Top Excuses
+    if (insights.top_excuses && insights.top_excuses.length > 0) {
+      topExcusesList.innerHTML = ''; // Clear loading message
+      insights.top_excuses.forEach((excuse) => {
+        const li = document.createElement('li');
+        const effectiveness =
+          excuse.total_feedback > 0
+            ? `${(
+                (excuse.effective_count / excuse.total_feedback) *
+                100
+              ).toFixed(0)}% Effective`
+            : 'No feedback yet';
+        li.innerHTML = `"${excuse.excuse_text}" <br><small>(${effectiveness} from ${excuse.total_feedback} feedback)</small>`;
+        topExcusesList.appendChild(li);
+      });
+    } else {
+      topExcusesList.innerHTML =
+        '<p>No feedback collected yet to rank excuses.</p>';
+    }
+
+    // Populate Predicted Excuse Need
+    let predictedHtml = '';
+
+    if (
+      insights.frequent_scenarios_all_time &&
+      insights.frequent_scenarios_all_time.length > 0
+    ) {
+      predictedHtml += '<h4>Frequently Needed Scenarios:</h4><ul>';
+      insights.frequent_scenarios_all_time.forEach((scenario) => {
+        predictedHtml += `<li>${toTitleCase(scenario.scenario)}: ${
+          scenario.count
+        } times</li>`;
+      });
+      predictedHtml += '</ul>';
+    } else {
+      predictedHtml += '<p>No recent scenario data.</p>';
+    }
+
+    if (insights.predicted_excuse_time) {
+      predictedHtml += `<p><strong>Historical busiest time:</strong> ${insights.predicted_excuse_time}</p>`;
+    }
+
+    predictedNeedList.innerHTML = predictedHtml;
+  } catch (error) {
+    console.error('Error fetching AI insights:', error);
+    topExcusesList.innerHTML =
+      '<p class="error-message">Failed to load insights.</p>';
+    predictedNeedList.innerHTML = '';
+  }
+}
+
+// --- NEW: Saved Excuses Functions ---
+
+// Function to handle saving an excuse
+async function saveExcuse() {
+  if (!currentExcuseText) {
+    alert('No excuse to save. Please generate one first.');
+    return;
+  }
+
+  try {
+    const response = await fetch('/save_excuse', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        excuse_text: currentExcuseText,
+        scenario: currentScenario,
+        user_role: currentUserRole,
+        recipient: currentRecipient,
+        language: currentLanguage,
+      }),
+    });
+    const data = await response.json();
+    if (response.ok) {
+      alert(data.message);
+      loadSavedExcuses(); // Reload saved excuses list after saving
+    } else {
+      alert(`Error saving excuse: ${data.error || 'Unknown error'}`);
+    }
+  } catch (error) {
+    console.error('Error saving excuse:', error);
+    alert('Failed to save excuse.');
+  }
+}
+
+// Function to load and display saved excuses
+async function loadSavedExcuses() {
+  try {
+    const response = await fetch('/get_saved_excuses');
+    const savedExcuses = await response.json();
+
+    savedExcusesList.innerHTML = ''; // Clear current list
+
+    if (savedExcuses.length === 0) {
+      savedExcusesList.innerHTML =
+        '<p>No saved excuses yet. Generate and save one!</p>';
+      return;
+    }
+
+    // Sort by saved_at timestamp, newest first
+    savedExcuses.sort((a, b) => new Date(b.saved_at) - new Date(a.saved_at));
+
+    savedExcuses.forEach((excuse) => {
+      const excuseDiv = document.createElement('div');
+      excuseDiv.classList.add('saved-excuse-item');
+      const savedDate = new Date(excuse.saved_at);
+      const formattedDate = savedDate.toLocaleString('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+      });
+
+      excuseDiv.innerHTML = `
+                <p><strong>Scenario:</strong> ${toTitleCase(
+                  excuse.scenario
+                )}</p>
+                <p>${excuse.excuse_text}</p>
+                <p class="saved-date">Saved: ${formattedDate}</p>
+                <div class="saved-excuse-actions">
+                    <button class="use-saved-btn btn btn-secondary" data-id="${
+                      excuse.id
+                    }">Use This</button>
+                    <button class="delete-saved-btn btn btn-danger" data-id="${
+                      excuse.id
+                    }">Delete</button>
+                </div>
+            `;
+      savedExcusesList.appendChild(excuseDiv);
+    });
+
+    // Add event listeners to the new "Use" and "Delete" buttons
+    document.querySelectorAll('.use-saved-btn').forEach((button) => {
+      button.addEventListener('click', (event) =>
+        useSavedExcuse(event.target.dataset.id, savedExcuses)
+      );
+    });
+
+    document.querySelectorAll('.delete-saved-btn').forEach((button) => {
+      button.addEventListener('click', (event) =>
+        deleteSavedExcuse(event.target.dataset.id)
+      );
+    });
+  } catch (error) {
+    console.error('Error loading saved excuses:', error);
+    savedExcusesList.innerHTML =
+      '<p class="error-message">Failed to load saved excuses.</p>';
+  }
+}
+
+// Function to use a saved excuse (pre-fill the form and display)
+function useSavedExcuse(id, savedExcuses) {
+  const excuseToUse = savedExcuses.find((exc) => exc.id === id);
+  if (excuseToUse) {
+    // Pre-fill the form fields
+    document.getElementById('scenario').value = excuseToUse.scenario;
+    document.getElementById('user_role').value = excuseToUse.user_role;
+    document.getElementById('recipient').value = excuseToUse.recipient;
+    document.getElementById('language').value = excuseToUse.language;
+    // Urgency/Believability aren't stored, so they remain as current selections or defaults
+
+    // Display the excuse text in the output area
+    excuseOutputDiv.innerHTML = `<b>Excuse:</b> ${excuseToUse.excuse_text}`;
+    currentExcuseText = excuseToUse.excuse_text;
+    // When using a saved excuse, it's not a *newly generated* one, so clear currentExcuseId
+    // This means feedback won't apply directly to the *saved* item, only newly generated ones.
+    currentExcuseId = null;
+    currentScenario = excuseToUse.scenario;
+    currentUserRole = excuseToUse.user_role;
+    currentRecipient = excuseToUse.recipient;
+    currentLanguage = excuseToUse.language;
+
+    // Ensure action buttons are visible for the displayed excuse
+    speakExcuseBtn.style.display = 'inline-block';
+    saveExcuseBtn.style.display = 'none'; // Cannot "save" an already saved excuse
+    feedbackGroup.style.display = 'none'; // No feedback for used saved excuses
+    proofSection.style.display = 'block'; // Can still generate proof based on this excuse
+    proofOutputDiv.style.display = 'none';
+    proofOutputDiv.innerHTML = '';
+
+    alert(
+      'Form pre-filled with saved excuse! You can now speak it or generate proof for it.'
+    );
+  } else {
+    alert('Saved excuse not found.');
+  }
+}
+
+// Function to delete a saved excuse
+async function deleteSavedExcuse(id) {
+  if (
+    !confirm(
+      'Are you sure you want to delete this saved excuse? This action cannot be undone.'
+    )
+  ) {
+    return;
+  }
+
+  try {
+    const response = await fetch(`/delete_saved_excuse/${id}`, {
+      method: 'DELETE',
+    });
+    const data = await response.json();
+    if (response.ok) {
+      alert(data.message);
+      loadSavedExcuses(); // Reload the list after deletion
+    } else {
+      alert(`Error deleting excuse: ${data.error || 'Unknown error'}`);
+    }
+  } catch (error) {
+    console.error('Error deleting excuse:', error);
+    alert('Failed to delete excuse.');
+  }
+}
+
+// Initial load: Fetch insights and load saved excuses when the DOM is ready
+document.addEventListener('DOMContentLoaded', () => {
+  believabilityValueSpan.textContent = believabilityRange.value; // Set initial value for slider
+  fetchInsights();
+  loadSavedExcuses(); // Load saved excuses on page load
+});

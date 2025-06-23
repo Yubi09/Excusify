@@ -8,29 +8,35 @@
 :root {
   /* Color Palette */
   --primary-color: #5A67D8; /* A vibrant, modern blue-violet */
-  --accent-color: #38A169;  /* A complementary subtle green */
-  --text-dark: #2D3748;     /* Dark gray for main text */
-  --text-light: #4A5568;    /* Lighter gray for secondary text */
-  --bg-light: #F7FAFC;      /* Very light background */
+  --accent-color: #38A169;   /* A complementary subtle green */
+  --text-dark: #2D3748;      /* Dark gray for main text */
+  --text-light: #4A5568;     /* Lighter gray for secondary text */
+  --bg-light: #F7FAFC;       /* Very light background */
   --bg-white: #FFFFFF;      /* Pure white for cards */
-  --border-color: #E2E8F0;  /* Light border for inputs, etc. */
+  --border-color: #E2E8F0;   /* Light border for inputs, etc. */
   --shadow-light: rgba(0, 0, 0, 0.05); /* Subtle shadow */
   --shadow-medium: rgba(0, 0, 0, 0.1); /* Slightly more prominent shadow */
+  --error-color: #E53E3E; /* Red for errors */
+  --success-color: #38A169; /* Green for success/effective feedback */
+
 
   /* Typography */
   --font-family-sans: 'Inter', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
   --font-size-base: 1rem; /* 16px */
   --font-size-h1: 3rem;
+  --font-size-h2: 2rem; /* New: for section titles */
+  --font-size-h3: 1.5rem; /* New: for sub-section titles */
   --font-size-label: 1.125rem; /* 18px */
   --font-size-input: 1rem;
   --font-size-button: 1.125rem;
 
   /* Spacing */
-  --spacing-xs: 0.5rem;
-  --spacing-sm: 1rem;
-  --spacing-md: 1.5rem;
-  --spacing-lg: 2rem;
-  --spacing-xl: 3rem;
+  --spacing-xs: 0.5rem; /* 8px */
+  --spacing-sm: 1rem; /* 16px */
+  --spacing-md: 1.5rem; /* 24px */
+  --spacing-lg: 2rem; /* 32px */
+  --spacing-xl: 3rem; /* 48px */
+  --spacing-xxl: 4rem; /* 64px */
 
   /* Border Radius */
   --border-radius-sm: 0.375rem; /* 6px */
@@ -61,30 +67,68 @@ h1 {
   text-align: center;
 }
 
-/* Section Containers */
-.card {
+h2 { /* New: Styling for section headings */
+  font-size: var(--font-size-h2);
+  color: var(--text-dark);
+  font-weight: 700;
+  margin-bottom: var(--spacing-lg);
+  text-align: center;
+  width: 100%;
+}
+
+h3 { /* New: Styling for sub-section headings */
+  font-size: var(--font-size-h3);
+  color: var(--text-light);
+  font-weight: 600;
+  margin-top: var(--spacing-md);
+  margin-bottom: var(--spacing-sm);
+  text-align: left;
+  width: 100%;
+}
+
+
+/* Main Layout Container (replaces form-container card) */
+.container {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); /* Responsive grid */
+  gap: var(--spacing-lg);
+  width: 100%;
+  max-width: 1200px; /* Wider layout */
+  margin-bottom: var(--spacing-lg);
+}
+
+/* Section Styling (new .card-like styling applied to sections) */
+.input-section,
+.output-section,
+.history-section,
+.insights-section {
   background-color: var(--bg-white);
   border-radius: var(--border-radius-lg);
   box-shadow: 0 10px 30px var(--shadow-light);
-  width: 100%;
-  max-width: 700px;
   padding: var(--spacing-lg);
-  margin-bottom: var(--spacing-lg);
-  text-align: left;
   transition: transform 0.3s ease, box-shadow 0.3s ease;
+  display: flex; /* Make sections flex containers */
+  flex-direction: column; /* Stack content vertically */
+  align-items: flex-start; /* Align content to the start */
 }
 
-.card:hover {
+/* Card hover effect for all sections */
+.input-section:hover,
+.output-section:hover,
+.history-section:hover,
+.insights-section:hover {
   transform: translateY(-5px);
   box-shadow: 0 15px 40px var(--shadow-medium);
 }
 
-/* Form Styles */
-.form-container {
+/* Form Group Styling */
+.form-group {
+  width: 100%;
   display: grid;
-  grid-template-columns: auto 1fr;
+  grid-template-columns: auto 1fr; /* Label and input */
   align-items: center;
   gap: var(--spacing-md) var(--spacing-lg); /* Row and Column gap */
+  margin-bottom: var(--spacing-sm); /* Space between form groups */
 }
 
 label {
@@ -110,7 +154,7 @@ input[type='range'] {
 }
 
 select:focus,
-input[type='range']:focus {
+input[type='range]:focus {
   border-color: var(--primary-color);
   box-shadow: 0 0 0 3px rgba(90, 103, 216, 0.2); /* Soft focus ring */
   outline: none;
@@ -172,7 +216,7 @@ input[type='range']::-moz-range-thumb {
   border: none; /* Remove default border */
 }
 
-#believability-value {
+#believability_value { /* Corrected ID */
   font-size: var(--font-size-label);
   color: var(--primary-color);
   margin-left: var(--spacing-sm);
@@ -236,18 +280,14 @@ input[type='range']::-moz-range-thumb {
 
 /* Generate Excuse Button (specific styling) */
 #generateExcuseBtn {
-  margin: var(--spacing-md) auto; /* Centers the button within its grid-column */
-  grid-column: 1 / -1; /* Span all columns in grid */
+  margin-top: var(--spacing-md); /* Space from last form group */
+  width: 100%; /* Take full width of its container */
   max-width: 300px;
-  background-color: var(--accent-color); /* Use accent for primary action */
-}
-
-#generateExcuseBtn:hover {
-  background-color: #2F855A;
+  align-self: center; /* Center horizontally in flex container */
 }
 
 /* Excuse Display Area */
-#excuse {
+#excuseOutput { /* Corrected ID */
   text-align: center;
   line-height: 1.8;
   min-height: 120px;
@@ -259,48 +299,88 @@ input[type='range']::-moz-range-thumb {
   align-items: center;
   justify-content: center;
   gap: var(--spacing-md); /* Space between excuse text and buttons */
+  width: 100%; /* Take full width of its parent section */
+  margin-bottom: var(--spacing-md); /* Space between excuse text and buttons/proof section */
+  background-color: var(--bg-light); /* Lighter background for less prominence than main cards */
+  border-radius: var(--border-radius-md);
+  box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.05); /* Inner shadow for subtle depth */
+  border: 1px solid var(--border-color); /* Subtle border */
+  padding: var(--spacing-md);
 }
 
-#excuse b {
+#excuseOutput b { /* Corrected ID */
   font-weight: 700;
   color: var(--primary-color);
 }
 
-#excuse.generating {
+#excuseOutput.generating { /* Corrected ID */
   color: var(--text-light);
   font-style: italic;
   font-weight: 400;
 }
 
-#excuse-actions {
+/* New: Button group for audio & feedback */
+.button-group {
   display: flex;
-  gap: var(--spacing-sm);
-  margin-top: var(--spacing-sm); /* Space from excuse text */
-  flex-wrap: wrap; /* Allow buttons to wrap on smaller screens */
+  flex-wrap: wrap;
   justify-content: center;
+  gap: var(--spacing-sm);
+  margin-top: var(--spacing-sm);
+  width: 100%;
 }
 
-#excuse-actions .btn {
-  padding: 10px 20px; /* Slightly smaller buttons here */
+.feedback-group {
+  margin-top: var(--spacing-md);
+  margin-bottom: var(--spacing-lg); /* Space before proof section */
+}
+
+/* New: Feedback Buttons */
+.feedback-btn {
+  padding: 10px 20px;
   font-size: 1rem;
-  max-width: 180px; /* Max width for individual buttons */
+  font-weight: 600;
+  border-radius: var(--border-radius-sm);
+  transition: background-color 0.2s ease;
 }
 
+.feedback-btn.effective {
+  background-color: var(--success-color);
+}
 
-/* Proof Section */
-#proof_section {
-  padding: var(--spacing-md);
-  background-color: var(--bg-white); /* Consistent card background */
-  border-radius: var(--border-radius-lg);
-  box-shadow: 0 10px 30px var(--shadow-light); /* Consistent shadow */
-  display: flex;
+.feedback-btn.effective:hover {
+  background-color: #2F855A;
+}
+
+.feedback-btn.ineffective {
+  background-color: var(--error-color);
+}
+
+.feedback-btn.ineffective:hover {
+  background-color: #C53030;
+}
+
+/* New: Audio Player */
+#excuseAudio {
+  width: 100%;
+  margin-top: var(--spacing-sm);
+}
+
+/* Proof Section (now a child of output-section) */
+.proof-section { /* Changed from ID to class, adjusted display for its parent */
+  display: flex; /* Changed from none to flex */
   flex-wrap: wrap;
   align-items: center;
   justify-content: center;
   gap: var(--spacing-md);
+  background-color: var(--bg-white); /* Consistent card background */
+  border-radius: var(--border-radius-lg);
+  box-shadow: 0 10px 30px var(--shadow-light); /* Consistent shadow */
+  padding: var(--spacing-md);
+  width: 100%;
+  margin-top: var(--spacing-lg); /* Space from feedback buttons */
 }
 
-#proof_section label {
+.proof-section label {
   margin-right: 0; /* Adjust for flex gap */
   font-size: 1rem;
   color: var(--text-light);
@@ -322,7 +402,7 @@ input[type='range']::-moz-range-thumb {
 
 
 /* Proof Link Display Area */
-#proof_link {
+#proofOutput { /* Corrected ID */
   font-size: 1.05rem;
   color: var(--text-dark);
   text-align: center;
@@ -336,9 +416,11 @@ input[type='range']::-moz-range-thumb {
   justify-content: center;
   gap: var(--spacing-xs); /* Space between elements within the link area */
   border: 1px solid var(--border-color); /* Subtle border */
+  width: 100%; /* Take full width */
+  margin-top: var(--spacing-md); /* Space from proof button */
 }
 
-#proof_link a {
+#proofOutput a { /* Corrected ID */
   color: var(--primary-color);
   text-decoration: none;
   font-weight: 700;
@@ -348,19 +430,74 @@ input[type='range']::-moz-range-thumb {
   gap: 5px;
 }
 
-#proof_link a:hover {
+#proofOutput a:hover { /* Corrected ID */
   text-decoration: underline;
   color: #4C51BF;
 }
 
-#proof_link small {
+#proofOutput small { /* Corrected ID */
   color: var(--text-light);
   font-size: 0.8rem;
   display: block;
   margin-top: var(--spacing-xs);
 }
 
-/* Spinners */
+/* History and Insights Sections */
+.history-section,
+.insights-section {
+  align-items: flex-start; /* Align content to the left */
+}
+
+.history-section h2,
+.insights-section h2 {
+  text-align: left; /* Align headings to left within these sections */
+}
+
+#excuseHistoryList,
+#topExcusesList,
+#predictedNeedList {
+  list-style: none; /* Remove default list bullets */
+  padding: 0;
+  width: 100%; /* Take full width */
+}
+
+#excuseHistoryList li,
+#topExcusesList li,
+#predictedNeedList li {
+  background-color: var(--bg-light);
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius-sm);
+  padding: var(--spacing-sm);
+  margin-bottom: var(--spacing-xs);
+  font-size: 0.95rem;
+  color: var(--text-dark);
+  line-height: 1.4;
+}
+
+#excuseHistoryList li strong {
+  color: var(--primary-color);
+}
+
+#excuseHistoryList li small {
+  display: block;
+  color: var(--text-light);
+  margin-top: 5px;
+  font-size: 0.85rem;
+}
+
+#topExcusesList li small {
+  display: block;
+  color: var(--text-light);
+  margin-top: 5px;
+  font-size: 0.85rem;
+}
+
+#predictedNeedList p {
+  font-size: 0.95rem;
+  color: var(--text-light);
+}
+
+/* Spinner Styles */
 .spinner {
   border: 4px solid rgba(0, 0, 0, 0.1);
   border-left: 4px solid var(--primary-color);
@@ -400,7 +537,30 @@ input[type='range']::-moz-range-thumb {
   font-weight: 500;
 }
 
+.error-message { /* New: for error messages */
+  color: var(--error-color);
+  font-weight: 600;
+  text-align: center;
+  margin: var(--spacing-sm) 0;
+}
+
+
 /* Responsive adjustments */
+@media (max-width: 1024px) {
+  .container {
+      grid-template-columns: 1fr; /* Stack all sections on medium screens */
+  }
+  .input-section,
+  .output-section,
+  .history-section,
+  .insights-section {
+      max-width: 700px; /* Limit width of stacked sections */
+      margin-left: auto;
+      margin-right: auto;
+  }
+}
+
+
 @media (max-width: 768px) {
   body {
       padding: var(--spacing-md);
@@ -409,13 +569,19 @@ input[type='range']::-moz-range-thumb {
       font-size: 2.5rem;
       margin-bottom: var(--spacing-lg);
   }
-  .card {
+  h2 {
+      font-size: 1.8rem;
+  }
+  .input-section,
+  .output-section,
+  .history-section,
+  .insights-section {
       padding: var(--spacing-md);
       margin-bottom: var(--spacing-md);
   }
-  .form-container {
-      grid-template-columns: 1fr;
-      gap: var(--spacing-md);
+  .form-group {
+      grid-template-columns: 1fr; /* Stack label and input */
+      gap: var(--spacing-xs); /* Reduce gap */
   }
   label {
       padding-right: 0;
@@ -426,7 +592,7 @@ input[type='range']::-moz-range-thumb {
       align-items: flex-start;
       gap: var(--spacing-xs);
   }
-  #believability-value {
+  #believability_value { /* Corrected ID */
       margin-left: 0;
   }
   .btn {
@@ -437,20 +603,21 @@ input[type='range']::-moz-range-thumb {
   #generateExcuseBtn {
       max-width: 100%; /* Ensure it spans full width on mobile */
   }
-  #excuse {
+  #excuseOutput { /* Corrected ID */
       font-size: 1.1rem;
       min-height: 100px;
       padding: var(--spacing-md);
+      gap: var(--spacing-sm);
   }
-  #excuse-actions {
+  .button-group {
       flex-direction: column;
       align-items: center;
   }
-  #excuse-actions .btn {
+  .feedback-btn, #speakExcuseBtn {
       width: 100%;
       max-width: 250px; /* Limit width for stacked buttons */
   }
-  #proof_section {
+  .proof-section { /* Changed from ID to class */
       flex-direction: column;
       gap: var(--spacing-md);
       padding: var(--spacing-md);
@@ -460,12 +627,18 @@ input[type='range']::-moz-range-thumb {
       width: 100%;
       max-width: none;
   }
-  #proof_link {
+  #proofOutput { /* Corrected ID */
       font-size: 0.95rem;
       padding: var(--spacing-md);
   }
-  #proof_link small {
+  #proofOutput small { /* Corrected ID */
       font-size: 0.75rem;
+  }
+  #excuseHistoryList li,
+  #topExcusesList li,
+  #predictedNeedList li {
+      padding: var(--spacing-xs);
+      font-size: 0.85rem;
   }
 }
 
@@ -477,11 +650,20 @@ input[type='range']::-moz-range-thumb {
       font-size: 2rem;
       margin-bottom: var(--spacing-md);
   }
-  .card {
+  h2 {
+      font-size: 1.5rem;
+  }
+  h3 {
+      font-size: 1.2rem;
+  }
+  .input-section,
+  .output-section,
+  .history-section,
+  .insights-section {
       padding: var(--spacing-sm);
       border-radius: var(--border-radius-md);
   }
-  .form-container {
+  .form-group {
       gap: var(--spacing-sm);
   }
   select,
@@ -493,21 +675,471 @@ input[type='range']::-moz-range-thumb {
       padding: 8px 15px;
       font-size: 0.95rem;
   }
-  #excuse {
+  #excuseOutput { /* Corrected ID */
       font-size: 1rem;
       min-height: 80px;
       padding: var(--spacing-sm);
       gap: var(--spacing-sm);
   }
-  #excuse-actions .btn {
+  .feedback-btn, #speakExcuseBtn {
       padding: 8px 15px;
       font-size: 0.9rem;
   }
-  #proof_section {
+  .proof-section { /* Changed from ID to class */
       padding: var(--spacing-sm);
   }
-  #proof_link {
+  #proofOutput { /* Corrected ID */
       padding: var(--spacing-sm);
       font-size: 0.9rem;
+  }
+  #excuseHistoryList li,
+  #topExcusesList li,
+  #predictedNeedList li {
+      padding: var(--spacing-xs);
+      font-size: 0.85rem;
+  }
+}
+
+/* Existing styles... */
+
+/* New styles for Saved Excuses Section */
+.saved-excuses-section {
+  background-color: #f9f9f9;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  padding: 20px;
+  margin-top: 30px;
+}
+
+.saved-excuses-section h2 {
+  color: #333;
+  margin-bottom: 20px;
+  text-align: center;
+}
+
+.excuse-list {
+  display: flex;
+  flex-direction: column;
+  gap: 15px; /* Space between saved excuse items */
+}
+
+.saved-excuse-item {
+  background-color: #fff;
+  border: 1px solid #eee;
+  border-radius: 5px;
+  padding: 15px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.saved-excuse-item p {
+  margin: 0;
+  line-height: 1.5;
+}
+
+.saved-excuse-item p:first-child {
+  font-size: 0.9em;
+  color: #666;
+  font-weight: bold;
+}
+
+.saved-date {
+  font-size: 0.8em;
+  color: #888;
+  margin-top: 5px !important; /* Override default p margin */
+}
+
+
+.saved-excuse-actions {
+  margin-top: 10px;
+  display: flex;
+  gap: 10px;
+}
+
+.saved-excuse-actions .btn { /* Apply general button styling */
+  padding: 8px 15px;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 0.9em;
+  transition: background-color 0.2s ease;
+  flex-grow: 1; /* Make buttons take equal width */
+}
+
+.saved-excuse-actions .btn-secondary { /* Example color for Use */
+  background-color: #6c757d;
+  color: white;
+}
+
+.saved-excuse-actions .btn-secondary:hover {
+  background-color: #5a6268;
+}
+
+.saved-excuse-actions .btn-danger { /* Example color for Delete */
+  background-color: #dc3545;
+  color: white;
+}
+
+.saved-excuse-actions .btn-danger:hover {
+  background-color: #c82333;
+}
+
+/* Spinner styles (ensure these are present if they aren't already) */
+.spinner {
+  border: 2px solid #f3f3f3; /* Light grey */
+  border-top: 2px solid #3498db; /* Blue */
+  border-radius: 50%;
+  width: 16px;
+  height: 16px;
+  animation: spin 1s linear infinite;
+  display: inline-block;
+  vertical-align: middle;
+  margin-right: 5px;
+}
+
+.spinner-small {
+  width: 12px;
+  height: 12px;
+  border-width: 1px;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* Error message styling */
+.error-message {
+  color: #dc3545; /* Red */
+  font-weight: bold;
+  text-align: center;
+  margin-top: 10px;
+}
+
+/* Add some basic button styles if not already present, matching your existing design */
+.btn {
+  padding: 10px 20px;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 1em;
+  transition: background-color 0.2s ease, transform 0.1s ease;
+}
+
+.btn-accent {
+  background-color: #4CAF50; /* Green, adjust to your theme */
+  color: white;
+}
+
+.btn-accent:hover {
+  background-color: #45a049;
+  transform: translateY(-1px);
+}
+
+.btn-primary {
+  background-color: #007bff; /* Blue, adjust to your theme */
+  color: white;
+}
+
+.btn-primary:hover {
+  background-color: #0056b3;
+  transform: translateY(-1px);
+}
+
+.btn-danger { /* For delete actions */
+  background-color: #dc3545;
+  color: white;
+}
+
+.btn-danger:hover {
+  background-color: #c82333;
+  transform: translateY(-1px);
+}
+
+.btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.button-group {
+  display: flex;
+  gap: 10px;
+  margin-top: 15px;
+  justify-content: center; /* Center buttons */
+  flex-wrap: wrap; /* Allow buttons to wrap on smaller screens */
+}
+
+.feedback-group {
+  margin-top: 15px;
+}
+
+.feedback-btn {
+  flex: 1; /* Equal width within feedback group */
+}
+
+.feedback-btn.effective {
+  background-color: #28a745;
+  color: white;
+}
+.feedback-btn.effective:hover {
+  background-color: #218838;
+}
+.feedback-btn.ineffective {
+  background-color: #ffc107;
+  color: #333; /* Dark text for contrast */
+}
+.feedback-btn.ineffective:hover {
+  background-color: #e0a800;
+}
+
+
+/* General layout and card styles */
+body {
+  font-family: 'Inter', sans-serif;
+  background-color: #f0f2f5;
+  color: #333;
+  line-height: 1.6;
+  margin: 0;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+h1 {
+  color: #2c3e50;
+  text-align: center;
+  margin-bottom: 30px;
+  font-size: 2.5em;
+  font-weight: 800;
+}
+
+h2 {
+  color: #34495e;
+  text-align: center;
+  margin-bottom: 25px;
+  font-size: 1.8em;
+  font-weight: 700;
+}
+
+h3 {
+  color: #555;
+  margin-top: 25px;
+  margin-bottom: 15px;
+  font-size: 1.3em;
+  font-weight: 600;
+  text-align: center;
+}
+
+.container {
+  display: grid;
+  grid-template-columns: 1fr; /* Single column layout for smaller screens */
+  gap: 30px;
+  max-width: 900px;
+  width: 100%;
+  padding: 0 15px;
+}
+
+@media (min-width: 768px) {
+  .container {
+      grid-template-columns: repeat(2, 1fr); /* Two columns for larger screens */
+  }
+  .output-section, .insights-section, .saved-excuses-section {
+      grid-column: span 1; /* Each section takes one column */
+  }
+  /* If you want output to span two columns when it's just two sections: */
+  /* .output-section { grid-column: span 2; } */
+}
+
+/* Adjusting sections to take full width when needed, or specific columns */
+@media (min-width: 900px) {
+  .container {
+      grid-template-columns: repeat(3, 1fr); /* Three columns for wider screens */
+  }
+  .input-section {
+      grid-column: span 1;
+  }
+  .output-section {
+      grid-column: span 2; /* Output section takes 2 columns */
+  }
+  .insights-section, .saved-excuses-section {
+      grid-column: span 1; /* Insights and Saved Excuses take 1 column */
+  }
+}
+
+
+section {
+  background-color: #ffffff;
+  padding: 30px;
+  border-radius: 10px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+}
+
+.form-group {
+  margin-bottom: 20px;
+  display: grid;
+  grid-template-columns: 100px 1fr;
+  align-items: center;
+  gap: 10px;
+}
+
+.form-group label {
+  font-weight: 600;
+  color: #555;
+  text-align: right;
+}
+
+.form-group select,
+.form-group input[type="range"] {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+  font-size: 1em;
+  background-color: #fefefe;
+  box-sizing: border-box; /* Include padding in width */
+}
+
+.range-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.range-group input[type="range"] {
+  flex-grow: 1;
+  margin: 0;
+}
+
+.range-group span {
+  width: 30px;
+  text-align: center;
+  font-weight: 600;
+  color: #007bff; /* Match primary button color */
+}
+
+.card {
+  background-color: #f8f9fa;
+  border: 1px solid #e2e6ea;
+  border-radius: 8px;
+  padding: 20px;
+  margin-top: 20px;
+  font-size: 1.1em;
+  color: #444;
+  min-height: 80px; /* Ensure a minimum height for output boxes */
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  box-shadow: inset 0 1px 3px rgba(0,0,0,0.05);
+}
+
+.card.generating {
+  color: #007bff;
+  font-style: italic;
+}
+
+.output-section .button-group,
+.output-section .feedback-group {
+  margin-top: 20px;
+  display: flex;
+  justify-content: center;
+  gap: 15px;
+}
+
+.proof-section {
+  background-color: #fefefe;
+  border: 1px solid #e0e0e0;
+  padding: 20px;
+  border-radius: 8px;
+  margin-top: 25px;
+  box-shadow: inset 0 1px 3px rgba(0,0,0,0.03);
+  text-align: center; /* Center content within proof section */
+}
+
+.proof-section .form-group {
+  display: block; /* Override grid for single item */
+  text-align: left; /* Align label to left */
+  margin-bottom: 15px;
+}
+
+.proof-section .form-group label {
+  display: block; /* Make label block-level */
+  text-align: left; /* Align label to left */
+  margin-bottom: 5px;
+}
+
+.proof-section select {
+  width: 100%; /* Make select full width within its container */
+  max-width: 300px; /* Max width for select */
+  display: block; /* Block element for proper centering */
+  margin: 0 auto; /* Center the select */
+}
+
+.proof-section .btn {
+  margin-top: 15px;
+}
+
+.proof-link {
+  color: #007bff;
+  text-decoration: none;
+  font-weight: bold;
+}
+
+.proof-link:hover {
+  text-decoration: underline;
+}
+
+ul {
+  list-style-type: none;
+  padding: 0;
+  margin-top: 15px;
+}
+
+ul li {
+  background-color: #f8f9fa;
+  border: 1px solid #e9ecef;
+  border-radius: 5px;
+  padding: 10px 15px;
+  margin-bottom: 10px;
+  font-size: 0.95em;
+  color: #495057;
+}
+
+ul li small {
+  color: #6c757d;
+  font-size: 0.85em;
+}
+
+/* Responsive adjustments */
+@media (max-width: 600px) {
+  body {
+      padding: 10px;
+  }
+  h1 {
+      font-size: 2em;
+  }
+  h2 {
+      font-size: 1.5em;
+  }
+  .form-group {
+      grid-template-columns: 1fr;
+      text-align: left;
+  }
+  .form-group label {
+      text-align: left;
+      margin-bottom: 5px;
+  }
+  .output-section .button-group {
+      flex-direction: column;
+      gap: 10px;
+  }
+  .btn {
+      width: 100%;
+      margin-top: 0 !important; /* Override potential conflicting margins */
   }
 }

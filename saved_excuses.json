@@ -1,0 +1,11 @@
+{
+  "a920f29f-7ad5-453f-80a7-a31aef624922": {
+    "id": "a920f29f-7ad5-453f-80a7-a31aef624922",
+    "excuse_text": "I apologize for my tardiness. My car wouldn't start this morning due to a dead battery, and I had to wait for roadside assistance to jumpstart it. I'll make up for the lost time.",
+    "scenario": "late for work",
+    "user_role": "employee",
+    "recipient": "boss",
+    "language": "en",
+    "saved_at": "2025-06-23T21:23:22.504284"
+  }
+}
