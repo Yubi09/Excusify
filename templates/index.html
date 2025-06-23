@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <title>Excusify</title>
+  </head>
+  <body>
+    <h1>Excusify</h1>
+
+    <div class="form-container card"> <label for="scenario">Scenario:</label>
+      <select id="scenario">
+        <option value="late for work">Late for work</option>
+        <option value="missed class">Missed class</option>
+        <option value="forgot anniversary">Forgot anniversary</option>
+        <option value="missed deadline">Missed a deadline</option>
+        <option value="didn't text back">Didn't text back</option>
+      </select>
+      <label for="user_role">Your Role:</label>
+      <select id="user_role">
+        <option value="employee">Employee</option>
+        <option value="student">Student</option>
+        <option value="friend">Friend</option>
+        <option value="parent">Parent</option>
+      </select>
+      <label for="recipient">Recipient:</label>
+      <select id="recipient">
+        <option value="boss">Boss</option>
+        <option value="teacher">Teacher</option>
+        <option value="friend">Friend</option>
+        <option value="partner">Partner</option>
+      </select>
+      <label for="urgency">Urgency:</label>
+      <select id="urgency">
+        <option value="high">High</option>
+        <option value="medium">Medium</option>
+        <option value="low">Low</option>
+      </select>
+      <label for="believability">Believability (1=Simple, 10=Detailed):</label>
+      <div class="range-group"> <input type="range" id="believability" min="1" max="10" value="5" />
+        <span id="believability-value">5</span>
+      </div>
+    </div>
+    <button id="generateExcuseBtn" class="btn btn-accent" onclick="generateExcuse()">Generate Excuse</button>
+
+    <div id="excuse" class="card"></div> <div id="proof_section" class="card" style="display: none"> <label for="proof_type">Proof Type:</label>
+      <select id="proof_type">
+        <option value="doctor_note">Doctor's Note (PDF)</option>
+        <option value="chat_screenshot">Chat Screenshot (PNG)</option>
+        <option value="location_log">Location Log (JSON)</option>
+      </select>
+      <button id="generateProofBtn" class="btn btn-primary" onclick="generateProof()">Generate Proof</button>
+    </div>
+
+    <div id="proof_link" class="card" style="display: none"></div> <script src="{{ url_for('static', filename='script.js') }}" defer></script>
+  </body>
+</html>

@@ -1,0 +1,513 @@
+/* Global styles: Reset & Base Typography */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+:root {
+  /* Color Palette */
+  --primary-color: #5A67D8; /* A vibrant, modern blue-violet */
+  --accent-color: #38A169;  /* A complementary subtle green */
+  --text-dark: #2D3748;     /* Dark gray for main text */
+  --text-light: #4A5568;    /* Lighter gray for secondary text */
+  --bg-light: #F7FAFC;      /* Very light background */
+  --bg-white: #FFFFFF;      /* Pure white for cards */
+  --border-color: #E2E8F0;  /* Light border for inputs, etc. */
+  --shadow-light: rgba(0, 0, 0, 0.05); /* Subtle shadow */
+  --shadow-medium: rgba(0, 0, 0, 0.1); /* Slightly more prominent shadow */
+
+  /* Typography */
+  --font-family-sans: 'Inter', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  --font-size-base: 1rem; /* 16px */
+  --font-size-h1: 3rem;
+  --font-size-label: 1.125rem; /* 18px */
+  --font-size-input: 1rem;
+  --font-size-button: 1.125rem;
+
+  /* Spacing */
+  --spacing-xs: 0.5rem;
+  --spacing-sm: 1rem;
+  --spacing-md: 1.5rem;
+  --spacing-lg: 2rem;
+  --spacing-xl: 3rem;
+
+  /* Border Radius */
+  --border-radius-sm: 0.375rem; /* 6px */
+  --border-radius-md: 0.75rem;  /* 12px */
+  --border-radius-lg: 1rem;     /* 16px */
+}
+
+body {
+  font-family: var(--font-family-sans);
+  background-color: var(--bg-light);
+  color: var(--text-dark);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-height: 100vh;
+  padding: var(--spacing-lg);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+h1 {
+  font-size: var(--font-size-h1);
+  color: var(--primary-color);
+  margin-bottom: var(--spacing-xl);
+  font-weight: 800; /* Extra bold */
+  letter-spacing: -0.05em; /* Slightly tighter for impact */
+  text-align: center;
+}
+
+/* Section Containers */
+.card {
+  background-color: var(--bg-white);
+  border-radius: var(--border-radius-lg);
+  box-shadow: 0 10px 30px var(--shadow-light);
+  width: 100%;
+  max-width: 700px;
+  padding: var(--spacing-lg);
+  margin-bottom: var(--spacing-lg);
+  text-align: left;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 15px 40px var(--shadow-medium);
+}
+
+/* Form Styles */
+.form-container {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: var(--spacing-md) var(--spacing-lg); /* Row and Column gap */
+}
+
+label {
+  font-size: var(--font-size-label);
+  font-weight: 600;
+  color: var(--text-light);
+  padding-right: var(--spacing-sm);
+  white-space: nowrap;
+}
+
+select,
+input[type='range'] {
+  padding: var(--spacing-sm) var(--spacing-md);
+  font-size: var(--font-size-input);
+  border-radius: var(--border-radius-sm);
+  border: 1px solid var(--border-color);
+  width: 100%;
+  background-color: var(--bg-white);
+  color: var(--text-dark);
+  appearance: none; /* Remove default select arrow */
+  -webkit-appearance: none;
+  transition: border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+select:focus,
+input[type='range']:focus {
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 3px rgba(90, 103, 216, 0.2); /* Soft focus ring */
+  outline: none;
+}
+
+select {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%232D3748'%3E%3Cpath d='M7 10l5 5 5-5z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.75rem center;
+  background-size: 1.25rem;
+  cursor: pointer;
+}
+
+
+/* Range Slider (Believability) */
+input[type='range'] {
+  height: 8px;
+  background: var(--border-color);
+  overflow: hidden; /* For fill effect */
+  border: none; /* Remove border from range */
+}
+
+input[type='range']::-webkit-slider-runnable-track {
+  width: 100%;
+  height: 8px;
+  cursor: pointer;
+  background: var(--border-color);
+  border-radius: var(--border-radius-sm);
+}
+
+input[type='range']::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--primary-color);
+  cursor: grab;
+  box-shadow: 0 2px 8px var(--shadow-light);
+  margin-top: -6px; /* Center thumb on track */
+  /* Add a large negative margin and fill with color to simulate fill */
+  box-shadow: -100vw 0 0 100vw var(--primary-color);
+}
+
+input[type='range']::-moz-range-track {
+  width: 100%;
+  height: 8px;
+  cursor: pointer;
+  background: var(--border-color);
+  border-radius: var(--border-radius-sm);
+}
+
+input[type='range']::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--primary-color);
+  cursor: grab;
+  box-shadow: 0 2px 8px var(--shadow-light);
+  border: none; /* Remove default border */
+}
+
+#believability-value {
+  font-size: var(--font-size-label);
+  color: var(--primary-color);
+  margin-left: var(--spacing-sm);
+  font-weight: 700;
+  min-width: 30px; /* Ensure enough space */
+  text-align: center;
+}
+
+.range-group {
+  display: flex;
+  align-items: center;
+  grid-column: 2 / 3;
+}
+
+/* Buttons */
+.btn {
+  padding: var(--spacing-sm) var(--spacing-md);
+  font-size: var(--font-size-button);
+  color: var(--bg-white);
+  border: none;
+  border-radius: var(--border-radius-sm);
+  cursor: pointer;
+  transition: background-color 0.3s ease, transform 0.2s ease, box-shadow 0.2s ease;
+  display: inline-flex; /* For icons */
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-xs);
+  font-weight: 600;
+  text-decoration: none; /* For download links acting as buttons */
+}
+
+.btn-primary {
+  background-color: var(--primary-color);
+}
+
+.btn-primary:hover {
+  background-color: #4C51BF; /* Darker primary */
+  transform: translateY(-2px);
+  box-shadow: 0 5px 15px var(--shadow-medium);
+}
+
+.btn-primary:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 6px var(--shadow-light);
+}
+
+.btn-accent {
+  background-color: var(--accent-color);
+}
+
+.btn-accent:hover {
+  background-color: #2F855A; /* Darker accent */
+  transform: translateY(-2px);
+  box-shadow: 0 5px 15px var(--shadow-medium);
+}
+
+.btn-accent:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 6px var(--shadow-light);
+}
+
+/* Generate Excuse Button (specific styling) */
+#generateExcuseBtn {
+  margin: var(--spacing-md) auto; /* Centers the button within its grid-column */
+  grid-column: 1 / -1; /* Span all columns in grid */
+  max-width: 300px;
+  background-color: var(--accent-color); /* Use accent for primary action */
+}
+
+#generateExcuseBtn:hover {
+  background-color: #2F855A;
+}
+
+/* Excuse Display Area */
+#excuse {
+  text-align: center;
+  line-height: 1.8;
+  min-height: 120px;
+  font-size: 1.25rem;
+  font-weight: 500;
+  color: var(--text-dark);
+  display: flex;
+  flex-direction: column; /* Allow content to stack */
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-md); /* Space between excuse text and buttons */
+}
+
+#excuse b {
+  font-weight: 700;
+  color: var(--primary-color);
+}
+
+#excuse.generating {
+  color: var(--text-light);
+  font-style: italic;
+  font-weight: 400;
+}
+
+#excuse-actions {
+  display: flex;
+  gap: var(--spacing-sm);
+  margin-top: var(--spacing-sm); /* Space from excuse text */
+  flex-wrap: wrap; /* Allow buttons to wrap on smaller screens */
+  justify-content: center;
+}
+
+#excuse-actions .btn {
+  padding: 10px 20px; /* Slightly smaller buttons here */
+  font-size: 1rem;
+  max-width: 180px; /* Max width for individual buttons */
+}
+
+
+/* Proof Section */
+#proof_section {
+  padding: var(--spacing-md);
+  background-color: var(--bg-white); /* Consistent card background */
+  border-radius: var(--border-radius-lg);
+  box-shadow: 0 10px 30px var(--shadow-light); /* Consistent shadow */
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-md);
+}
+
+#proof_section label {
+  margin-right: 0; /* Adjust for flex gap */
+  font-size: 1rem;
+  color: var(--text-light);
+}
+
+#proof_type {
+  flex-grow: 1;
+  min-width: 150px;
+}
+
+#generateProofBtn {
+  max-width: 180px;
+  background-color: var(--primary-color); /* Use primary color for proof button */
+}
+
+#generateProofBtn:hover {
+  background-color: #4C51BF;
+}
+
+
+/* Proof Link Display Area */
+#proof_link {
+  font-size: 1.05rem;
+  color: var(--text-dark);
+  text-align: center;
+  padding: var(--spacing-md);
+  background-color: var(--bg-light); /* Lighter background for less prominence than main cards */
+  border-radius: var(--border-radius-md);
+  box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.05); /* Inner shadow for subtle depth */
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-xs); /* Space between elements within the link area */
+  border: 1px solid var(--border-color); /* Subtle border */
+}
+
+#proof_link a {
+  color: var(--primary-color);
+  text-decoration: none;
+  font-weight: 700;
+  transition: color 0.2s ease, text-decoration 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+#proof_link a:hover {
+  text-decoration: underline;
+  color: #4C51BF;
+}
+
+#proof_link small {
+  color: var(--text-light);
+  font-size: 0.8rem;
+  display: block;
+  margin-top: var(--spacing-xs);
+}
+
+/* Spinners */
+.spinner {
+  border: 4px solid rgba(0, 0, 0, 0.1);
+  border-left: 4px solid var(--primary-color);
+  border-radius: 50%;
+  width: 30px;
+  height: 30px;
+  animation: spin 1s linear infinite;
+  flex-shrink: 0;
+}
+
+.spinner-small {
+  width: 20px;
+  height: 20px;
+  border-width: 3px;
+}
+
+/* Spinner inside button */
+.btn .spinner {
+  margin-right: 5px;
+  width: 18px;
+  height: 18px;
+  border-width: 2px;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* Utility classes for loading states */
+.loading-text {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  font-style: italic;
+  color: var(--text-light);
+  font-weight: 500;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  body {
+      padding: var(--spacing-md);
+  }
+  h1 {
+      font-size: 2.5rem;
+      margin-bottom: var(--spacing-lg);
+  }
+  .card {
+      padding: var(--spacing-md);
+      margin-bottom: var(--spacing-md);
+  }
+  .form-container {
+      grid-template-columns: 1fr;
+      gap: var(--spacing-md);
+  }
+  label {
+      padding-right: 0;
+      font-size: 1rem;
+  }
+  .range-group {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: var(--spacing-xs);
+  }
+  #believability-value {
+      margin-left: 0;
+  }
+  .btn {
+      max-width: 100%;
+      font-size: 1rem;
+      padding: 10px 20px;
+  }
+  #generateExcuseBtn {
+      max-width: 100%; /* Ensure it spans full width on mobile */
+  }
+  #excuse {
+      font-size: 1.1rem;
+      min-height: 100px;
+      padding: var(--spacing-md);
+  }
+  #excuse-actions {
+      flex-direction: column;
+      align-items: center;
+  }
+  #excuse-actions .btn {
+      width: 100%;
+      max-width: 250px; /* Limit width for stacked buttons */
+  }
+  #proof_section {
+      flex-direction: column;
+      gap: var(--spacing-md);
+      padding: var(--spacing-md);
+  }
+  #proof_type,
+  #generateProofBtn {
+      width: 100%;
+      max-width: none;
+  }
+  #proof_link {
+      font-size: 0.95rem;
+      padding: var(--spacing-md);
+  }
+  #proof_link small {
+      font-size: 0.75rem;
+  }
+}
+
+@media (max-width: 480px) {
+  body {
+      padding: var(--spacing-sm);
+  }
+  h1 {
+      font-size: 2rem;
+      margin-bottom: var(--spacing-md);
+  }
+  .card {
+      padding: var(--spacing-sm);
+      border-radius: var(--border-radius-md);
+  }
+  .form-container {
+      gap: var(--spacing-sm);
+  }
+  select,
+  input[type='range'] {
+      padding: 8px 12px;
+      font-size: 0.9rem;
+  }
+  .btn {
+      padding: 8px 15px;
+      font-size: 0.95rem;
+  }
+  #excuse {
+      font-size: 1rem;
+      min-height: 80px;
+      padding: var(--spacing-sm);
+      gap: var(--spacing-sm);
+  }
+  #excuse-actions .btn {
+      padding: 8px 15px;
+      font-size: 0.9rem;
+  }
+  #proof_section {
+      padding: var(--spacing-sm);
+  }
+  #proof_link {
+      padding: var(--spacing-sm);
+      font-size: 0.9rem;
+  }
+}

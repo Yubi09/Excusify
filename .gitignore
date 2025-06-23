@@ -1,0 +1,15 @@
+.env
+/doc/proofs
+/node_modules
+/coverage
+/.cache
+/.next
+/.nuxt
+/.output
+/.vercel
+/.vscode
+/.idea
+/static/proofs
+/__pycache__
+/audio_files
+/requirements.txt
