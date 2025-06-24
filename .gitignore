@@ -31,3 +31,4 @@ Thumbs.db
 /.nuxt/
 /.vercel/
 /instance
+/saved_excuses.json
