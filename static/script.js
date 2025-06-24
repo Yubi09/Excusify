@@ -1,11 +1,12 @@
+// variables to hold current state
+// These will be used to manage the current excuse and its details
 let currentExcuseId = null;
-let currentExcuseText = null; // Renamed for clarity, matches backend
+let currentExcuseText = null;
 let currentScenario = null;
-let currentUserRole = null; // Stored for pre-filling saved excuses
-let currentRecipient = null; // Stored for pre-filling saved excuses
-let currentLanguage = 'en'; // Store the language of the generated excuse for speaking/saving
+let currentUserRole = null;
+let currentRecipient = null;
+let currentLanguage = 'en';
 
-// Helper function for title casing
 function toTitleCase(str) {
   if (!str) return '';
   return str
@@ -15,13 +16,12 @@ function toTitleCase(str) {
     .join(' ');
 }
 
-// Get DOM elements
 const believabilityRange = document.getElementById('believability');
 const believabilityValueSpan = document.getElementById('believability_value');
 const generateExcuseBtn = document.getElementById('generateExcuseBtn');
 const excuseOutputDiv = document.getElementById('excuseOutput');
 const speakExcuseBtn = document.getElementById('speakExcuseBtn');
-const saveExcuseBtn = document.getElementById('saveExcuseBtn'); // New save button
+const saveExcuseBtn = document.getElementById('saveExcuseBtn');
 const excuseAudio = document.getElementById('excuseAudio');
 const effectiveBtn = document.getElementById('effectiveBtn');
 const ineffectiveBtn = document.getElementById('ineffectiveBtn');
@@ -32,22 +32,19 @@ const feedbackGroup = document.querySelector('.feedback-group');
 const proofSection = document.querySelector('.proof-section');
 const topExcusesList = document.getElementById('topExcusesList');
 const predictedNeedList = document.getElementById('predictedNeedList');
-const savedExcusesList = document.getElementById('savedExcusesList'); // New list for saved excuses
+const savedExcusesList = document.getElementById('savedExcusesList');
 
-// Update believability value display
 believabilityRange.addEventListener('input', function () {
   believabilityValueSpan.textContent = this.value;
 });
 
-// Event Listeners for buttons
 generateExcuseBtn.addEventListener('click', generateExcuse);
 speakExcuseBtn.addEventListener('click', speakExcuse);
-saveExcuseBtn.addEventListener('click', saveExcuse); // New event listener for save button
+saveExcuseBtn.addEventListener('click', saveExcuse);
 effectiveBtn.addEventListener('click', () => submitFeedback(true));
 ineffectiveBtn.addEventListener('click', () => submitFeedback(false));
 generateProofBtn.addEventListener('click', generateProof);
 
-// Function to handle playing the excuse audio
 async function speakExcuse() {
   if (!currentExcuseText || !currentExcuseId) {
     console.error('No excuse text or ID available to play.');
@@ -70,7 +67,7 @@ async function speakExcuse() {
       body: JSON.stringify({
         excuse: currentExcuseText,
         excuse_id: currentExcuseId,
-        language: currentLanguage, // Pass language for gTTS
+        language: currentLanguage,
       }),
     });
 
@@ -108,16 +105,14 @@ async function generateExcuse() {
   const believability = believabilityRange.value;
   const language = document.getElementById('language').value;
 
-  // Store these values globally for use by speak, save, and proof functions
   currentScenario = scenario;
   currentUserRole = user_role;
   currentRecipient = recipient;
   currentLanguage = language;
 
-  // Reset UI elements
   excuseOutputDiv.innerHTML = '';
   speakExcuseBtn.style.display = 'none';
-  saveExcuseBtn.style.display = 'none'; // Hide save button until generated
+  saveExcuseBtn.style.display = 'none';
   excuseAudio.style.display = 'none';
   excuseAudio.src = '';
   feedbackGroup.style.display = 'none';
@@ -125,7 +120,6 @@ async function generateExcuse() {
   proofOutputDiv.style.display = 'none';
   proofOutputDiv.innerHTML = '';
 
-  // Show loading state
   excuseOutputDiv.classList.add('generating');
   excuseOutputDiv.innerHTML =
     '<div class="spinner"></div><p>Generating excuse...</p>';
@@ -156,18 +150,17 @@ async function generateExcuse() {
     console.log('Excuse response:', data);
 
     currentExcuseId = data.excuse_id;
-    currentExcuseText = data.excuse; // Use currentExcuseText consistently
+    currentExcuseText = data.excuse;
 
     excuseOutputDiv.classList.remove('generating');
     excuseOutputDiv.innerHTML = `<b>Excuse:</b> ${data.excuse}`;
 
-    // Show action buttons
+    // Action buttons
     speakExcuseBtn.style.display = 'inline-block';
-    saveExcuseBtn.style.display = 'inline-block'; // Show save button
+    saveExcuseBtn.style.display = 'inline-block';
     feedbackGroup.style.display = 'flex';
     proofSection.style.display = 'block';
 
-    // Fetch and display updated insights (after a new excuse is generated)
     fetchInsights();
   } catch (error) {
     excuseOutputDiv.classList.remove('generating');
@@ -273,7 +266,6 @@ async function submitFeedback(isEffective) {
     // Optionally hide feedback buttons after submission
     feedbackGroup.style.display = 'none';
 
-    // Refresh insights after feedback
     fetchInsights();
   } catch (error) {
     console.error('Error submitting feedback:', error);
@@ -296,9 +288,8 @@ async function fetchInsights() {
     const insights = await response.json();
     console.log('AI Insights:', insights);
 
-    // Populate Top Excuses
     if (insights.top_excuses && insights.top_excuses.length > 0) {
-      topExcusesList.innerHTML = ''; // Clear loading message
+      topExcusesList.innerHTML = '';
       insights.top_excuses.forEach((excuse) => {
         const li = document.createElement('li');
         const effectiveness =
@@ -316,7 +307,6 @@ async function fetchInsights() {
         '<p>No feedback collected yet to rank excuses.</p>';
     }
 
-    // Populate Predicted Excuse Need
     let predictedHtml = '';
 
     if (
@@ -347,9 +337,6 @@ async function fetchInsights() {
   }
 }
 
-// --- NEW: Saved Excuses Functions ---
-
-// Function to handle saving an excuse
 async function saveExcuse() {
   if (!currentExcuseText) {
     alert('No excuse to save. Please generate one first.');
@@ -373,7 +360,7 @@ async function saveExcuse() {
     const data = await response.json();
     if (response.ok) {
       alert(data.message);
-      loadSavedExcuses(); // Reload saved excuses list after saving
+      loadSavedExcuses();
     } else {
       alert(`Error saving excuse: ${data.error || 'Unknown error'}`);
     }
@@ -383,13 +370,12 @@ async function saveExcuse() {
   }
 }
 
-// Function to load and display saved excuses
 async function loadSavedExcuses() {
   try {
     const response = await fetch('/get_saved_excuses');
     const savedExcuses = await response.json();
 
-    savedExcusesList.innerHTML = ''; // Clear current list
+    savedExcusesList.innerHTML = '';
 
     if (savedExcuses.length === 0) {
       savedExcusesList.innerHTML =
@@ -397,7 +383,6 @@ async function loadSavedExcuses() {
       return;
     }
 
-    // Sort by saved_at timestamp, newest first
     savedExcuses.sort((a, b) => new Date(b.saved_at) - new Date(a.saved_at));
 
     savedExcuses.forEach((excuse) => {
@@ -430,7 +415,6 @@ async function loadSavedExcuses() {
       savedExcusesList.appendChild(excuseDiv);
     });
 
-    // Add event listeners to the new "Use" and "Delete" buttons
     document.querySelectorAll('.use-saved-btn').forEach((button) => {
       button.addEventListener('click', (event) =>
         useSavedExcuse(event.target.dataset.id, savedExcuses)
@@ -449,33 +433,26 @@ async function loadSavedExcuses() {
   }
 }
 
-// Function to use a saved excuse (pre-fill the form and display)
 function useSavedExcuse(id, savedExcuses) {
   const excuseToUse = savedExcuses.find((exc) => exc.id === id);
   if (excuseToUse) {
-    // Pre-fill the form fields
     document.getElementById('scenario').value = excuseToUse.scenario;
     document.getElementById('user_role').value = excuseToUse.user_role;
     document.getElementById('recipient').value = excuseToUse.recipient;
     document.getElementById('language').value = excuseToUse.language;
-    // Urgency/Believability aren't stored, so they remain as current selections or defaults
-
-    // Display the excuse text in the output area
+    
     excuseOutputDiv.innerHTML = `<b>Excuse:</b> ${excuseToUse.excuse_text}`;
     currentExcuseText = excuseToUse.excuse_text;
-    // When using a saved excuse, it's not a *newly generated* one, so clear currentExcuseId
-    // This means feedback won't apply directly to the *saved* item, only newly generated ones.
     currentExcuseId = null;
     currentScenario = excuseToUse.scenario;
     currentUserRole = excuseToUse.user_role;
     currentRecipient = excuseToUse.recipient;
     currentLanguage = excuseToUse.language;
 
-    // Ensure action buttons are visible for the displayed excuse
     speakExcuseBtn.style.display = 'inline-block';
-    saveExcuseBtn.style.display = 'none'; // Cannot "save" an already saved excuse
-    feedbackGroup.style.display = 'none'; // No feedback for used saved excuses
-    proofSection.style.display = 'block'; // Can still generate proof based on this excuse
+    saveExcuseBtn.style.display = 'none';
+    feedbackGroup.style.display = 'none';
+    proofSection.style.display = 'block';
     proofOutputDiv.style.display = 'none';
     proofOutputDiv.innerHTML = '';
 
@@ -487,7 +464,6 @@ function useSavedExcuse(id, savedExcuses) {
   }
 }
 
-// Function to delete a saved excuse
 async function deleteSavedExcuse(id) {
   if (
     !confirm(
@@ -504,7 +480,7 @@ async function deleteSavedExcuse(id) {
     const data = await response.json();
     if (response.ok) {
       alert(data.message);
-      loadSavedExcuses(); // Reload the list after deletion
+      loadSavedExcuses();
     } else {
       alert(`Error deleting excuse: ${data.error || 'Unknown error'}`);
     }
@@ -514,9 +490,8 @@ async function deleteSavedExcuse(id) {
   }
 }
 
-// Initial load: Fetch insights and load saved excuses when the DOM is ready
 document.addEventListener('DOMContentLoaded', () => {
-  believabilityValueSpan.textContent = believabilityRange.value; // Set initial value for slider
+  believabilityValueSpan.textContent = believabilityRange.value;
   fetchInsights();
-  loadSavedExcuses(); // Load saved excuses on page load
+  loadSavedExcuses();
 });

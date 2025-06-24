@@ -17,7 +17,7 @@ import traceback
 import mimetypes
 import time
 from gtts import gTTS
-import re # Import regex module
+import re
 
 load_dotenv()
 app = Flask(__name__)
@@ -85,7 +85,7 @@ def serve_proof(filename):
         return "Internal Server Error: Failed to serve file.", 500
 
 
-# NEW ROUTE TO SERVE AUDIO FILES FROM THE NEW DIRECTORY
+#SERVING AUDIO FILES FROM THE NEW DIRECTORY
 @app.route('/audio_files/<path:filename>')
 def serve_audio_file(filename):
     return send_from_directory(AUDIO_OUTPUT_DIR, filename)
@@ -95,13 +95,12 @@ HUGGINGFACE_API_TOKEN = os.getenv("HUGGINGFACE_API_TOKEN")
 API_URL = "https://api-inference.huggingface.co/models/mistralai/Mixtral-8x7B-Instruct-v0.1"
 VALID_SCENARIOS = ["late for work", "missed class", "forgot anniversary", "missed deadline", "didn't text back"]
 
-# In-memory storage for insights (persists only while app is running)
 insights_db = {
     "frequent_scenarios": {},
     "daily_counts": {},
     "excuse_feedback": {}
 }
-# Placeholder for generated excuses database (used for feedback tracking)
+
 excuses_db = {}
 
 
@@ -137,11 +136,8 @@ def get_excuse_from_huggingface(prompt):
         else:
             excuse = raw_text.strip()
         
-        # --- START: Enhanced cleaning for unwanted translations/intros ---
-        # Normalize and remove common LLM conversational intros or explicit translations
-        excuse = excuse.replace('"', '').strip() # Remove quotes
+        excuse = excuse.replace('"', '').strip()
         
-        # List of patterns to remove if they appear at the start of the excuse
         undesired_prefixes = [
             "here's an excuse:",
             "translation:",
@@ -160,24 +156,16 @@ def get_excuse_from_huggingface(prompt):
             "excuse:"
         ]
         
-        # Compile a regex pattern to match any of the prefixes followed by optional colon/space
-        # Using re.IGNORECASE for case-insensitivity
+    
         prefix_pattern = re.compile(r'^(?:' + '|'.join(re.escape(p) for p in undesired_prefixes) + r')\s*(?::\s*)?', re.IGNORECASE)
 
-        # Apply the regex pattern
         match = prefix_pattern.match(excuse)
         if match:
-            excuse = excuse[match.end():].strip() # Remove the matched prefix
-
-        # If after removing initial prefixes, the text still contains "Translation:" mid-string,
-        # or other language indicators, try to split it. This is a fallback for very chatty models.
-        # This specifically targets cases like "Excuse in Spanish. Translation: Excuse in English."
+            excuse = excuse[match.end():].strip()
         if re.search(r'\b(Translation|English|Spanish|French|German|Italian|Portuguese|Hindi|Bengali)\s*:', excuse, re.IGNORECASE):
             parts = re.split(r'\b(Translation|English|Spanish|French|German|Italian|Portuguese|Hindi|Bengali)\s*:', excuse, 1, re.IGNORECASE)
             if len(parts) > 1:
-                # Keep only the part before the first "Translation:" or language indicator
                 excuse = parts[0].strip()
-        # --- END: Enhanced cleaning ---
 
         print(f"Hugging Face API returned cleaned excuse: {excuse}")
         return excuse if excuse else "Error generating excuse, please try again later."
@@ -202,10 +190,9 @@ def generate_doctor_doc(excuse_id, scenario):
     medical_detail = get_excuse_from_huggingface(prompt)
     medical_detail = medical_detail.replace('"', '').strip() if medical_detail else "Unknown medical issue preventing attendance."
     
-    # Further clean medical detail, specifically for doctor's note context
+    # Further clean medical detail, specifically for doctor's note
     if medical_detail.lower().startswith("here's a medical detail:"):
         medical_detail = medical_detail[len("here's a medical detail:"):].strip()
-    # Remove any stray "Translation:" or similar from doctor's note detail if it somehow appears
     if re.search(r'\b(Translation|English)\s*:', medical_detail, re.IGNORECASE):
         medical_detail = re.split(r'\b(Translation|English)\s*:', medical_detail, 1, re.IGNORECASE)[0].strip()
 
@@ -443,7 +430,6 @@ def generate_location_log(excuse_id, scenario):
         traceback.print_exc()
         return None
 
-# --- Saved Excuses Functions ---
 def _load_saved_excuses():
     if not os.path.exists(SAVED_EXCUSES_FILE):
         return {}
@@ -487,7 +473,6 @@ def generate_excuse():
     }
     target_language = language_map.get(language, "English")
 
-    # Modified prompt to explicitly ask for no translation and no conversational filler
     prompt = f"""
     [INST] Generate a concise, realistic, and believable excuse for a {user_role} who needs an excuse for '{scenario}' to their {recipient}. The urgency is {urgency} and believability is {believability}/10 (1=simple, 10=highly detailed). The excuse should be **solely in {target_language}**.
     Do NOT include any conversational filler, introductions, or explicit translations (e.g., do not say "Translation: [English excuse]"). Provide only the excuse itself.
@@ -524,23 +509,21 @@ def speak_excuse():
     data = request.get_json()
     excuse_text = data.get("excuse", "")
     excuse_id = data.get("excuse_id", str(uuid.uuid4()))
-    language_code = data.get("language", "en") # Get language from frontend for gTTS
+    language_code = data.get("language", "en")
 
     if not excuse_text:
         return jsonify({"error": "No excuse text provided"}), 400
 
     try:
-        # Use the language code passed from the frontend
         tts = gTTS(text=excuse_text, lang=language_code)
 
-        audio_filename = f"excuse_{excuse_id}_{language_code}.mp3" # Include language in filename
+        audio_filename = f"excuse_{excuse_id}_{language_code}.mp3"
         audio_filepath = os.path.join(AUDIO_OUTPUT_DIR, audio_filename)
         
         print(f"Attempting to save audio to: {audio_filepath}")
         tts.save(audio_filepath)
         
-        # Add a small delay to ensure the file is fully written before returning URL
-        time.sleep(0.5) # Increased delay slightly to help with file readiness
+        time.sleep(0.5)
 
         if os.path.exists(audio_filepath):
             print(f"SUCCESS: Audio file '{audio_filename}' found on disk at {audio_filepath}")
@@ -626,7 +609,6 @@ def submit_feedback():
 
 @app.route('/insights')
 def get_insights():
-    # Smart Excuse Ranking
     ranked_excuses = sorted(
         [
             {"excuse_text": text, **data}
@@ -637,22 +619,18 @@ def get_insights():
         reverse=True
     )[:5]
 
-    # Predicted Excuse Need (simple version: most frequent scenarios + busiest time of day/week)
-    
-    # Frequent scenarios 
     frequent_scenarios_list = sorted(
         [{"scenario": s, "count": c} for s, c in insights_db["frequent_scenarios"].items()],
         key=lambda x: x["count"],
         reverse=True
     )[:5]
 
-    # Simple busiest time prediction
     total_excuses_generated = sum(insights_db["daily_counts"].values())
     
     predicted_excuse_time = "No clear pattern yet (generate more excuses!)"
-    if total_excuses_generated > 5: # Need some data to predict
+    if total_excuses_generated > 5:
         hour_counts = {}
-        for excuse_id, excuse_data in excuses_db.items(): # Use excuses_db for timestamp
+        for excuse_id, excuse_data in excuses_db.items():
             timestamp_str = excuse_data['timestamp']
             dt_object = datetime.fromisoformat(timestamp_str)
             hour = dt_object.hour
@@ -673,7 +651,6 @@ def get_insights():
     }
     return jsonify(insights)
 
-# --- New Routes for Saved Excuses ---
 @app.route('/save_excuse', methods=['POST'])
 def save_excuse():
     data = request.get_json()
@@ -681,7 +658,7 @@ def save_excuse():
     scenario = data.get('scenario')
     user_role = data.get('user_role')
     recipient = data.get('recipient')
-    language = data.get('language') # Also save language for later 'use'
+    language = data.get('language')
 
     if not excuse_text:
         return jsonify({"error": "Excuse text is required to save."}), 400
@@ -703,7 +680,6 @@ def save_excuse():
 @app.route('/get_saved_excuses', methods=['GET'])
 def get_saved_excuses():
     saved_excuses = _load_saved_excuses()
-    # Convert dictionary to a list of its values for easier consumption by frontend
     return jsonify(list(saved_excuses.values()))
 
 @app.route('/delete_saved_excuse/<excuse_id>', methods=['DELETE'])
