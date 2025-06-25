@@ -24,7 +24,6 @@ Generate believable excuses for any situation, complete with supporting "evidenc
 - **ReportLab**: For creating professional PDF documents.
 - **Pillow**: For generating realistic chat screenshots.
 - **python-dotenv**: For secure management of API keys.
-- **gunicorn**: Reliable server for running Flask apps in production.
 
 ### Frontend
 - **HTML5, CSS3, JavaScript**: Core technologies for the user interface.
@@ -42,7 +41,7 @@ Generate believable excuses for any situation, complete with supporting "evidenc
 1. **Clone the repository**:
    ```bash
    git clone https://github.com/Yubi09/Excusify.git
-   cd excusify
+   cd Excusify
    ```
 
 2. **Install Dependencies**:

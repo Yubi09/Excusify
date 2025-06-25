@@ -16,7 +16,6 @@ venv/
 
 doc/proofs/
 audio_files/
-saved_excuses.json
 
 /coverage/
 .cache/
@@ -31,4 +30,4 @@ Thumbs.db
 /.nuxt/
 /.vercel/
 /instance
-/saved_excuses.json
+/.json/
